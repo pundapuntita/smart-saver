@@ -245,7 +245,7 @@ function App() {
     const newTx = {
       id: Date.now().toString(),
       type, amount: parseFloat(amount),
-      memo: memo || (type === 'income' ? 'รายรับ' : type === 'cc_payment' ? 'ชำระบิลบัตรเครดิต' : 'รายจ่าย'),
+      memo: memo || (type === 'income' ? 'รายรับ' : type === 'transfer' ? 'โอนเก็บ / ภายใน' : type === 'cc_payment' ? 'ชำระบิลบัตรเครดิต' : 'รายจ่าย'),
       category: (type === 'expense' && !selectedProjectId) || type === 'income' ? category : null,
       paymentMethod: type === 'expense' ? paymentMethod : null,
       date: new Date(dateStr).toISOString(),
@@ -500,10 +500,11 @@ function App() {
               <Plus size={20} /> เพิ่มรายการใหม่
             </h2>
             <form onSubmit={handleAddTransaction} className="flex flex-col gap-4">
-              <div className="flex gap-2 text-sm md:text-base">
-                <button type="button" className={`flex-1 py-1 sm:py-2 rounded-lg font-medium transition ${type === 'income' ? 'bg-green-600 border border-green-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.4)]' : 'bg-transparent border border-gray-600 text-gray-400'}`} style={type === 'income' ? { backgroundColor: 'var(--accent-green)', borderColor: 'var(--accent-green)' } : {}} onClick={() => setType('income')}>รายรับ</button>
-                <button type="button" className={`flex-1 py-1 sm:py-2 rounded-lg font-medium transition ${type === 'expense' ? 'bg-red-600 border border-red-500 text-white shadow-[0_0_15px_rgba(239,68,68,0.4)]' : 'bg-transparent border border-gray-600 text-gray-400'}`} style={type === 'expense' ? { backgroundColor: 'var(--accent-red)', borderColor: 'var(--accent-red)' } : {}} onClick={() => setType('expense')}>รายจ่าย</button>
-                <button type="button" className={`flex-1 py-1 sm:py-2 rounded-lg font-medium transition ${type === 'cc_payment' ? 'bg-indigo-600 border border-indigo-500 text-white shadow-[0_0_15px_rgba(79,70,229,0.4)]' : 'bg-transparent border border-gray-600 text-gray-400'}`} onClick={() => setType('cc_payment')}>จ่ายบิลบัตรฯ</button>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 text-sm md:text-base">
+                <button type="button" className={`py-1 sm:py-2 rounded-lg font-medium transition ${type === 'income' ? 'bg-green-600 border border-green-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.4)]' : 'bg-transparent border border-gray-600 text-gray-400'}`} style={type === 'income' ? { backgroundColor: 'var(--accent-green)', borderColor: 'var(--accent-green)' } : {}} onClick={() => setType('income')}>รายรับ</button>
+                <button type="button" className={`py-1 sm:py-2 rounded-lg font-medium transition ${type === 'expense' ? 'bg-red-600 border border-red-500 text-white shadow-[0_0_15px_rgba(239,68,68,0.4)]' : 'bg-transparent border border-gray-600 text-gray-400'}`} style={type === 'expense' ? { backgroundColor: 'var(--accent-red)', borderColor: 'var(--accent-red)' } : {}} onClick={() => setType('expense')}>รายจ่าย</button>
+                <button type="button" className={`py-1 sm:py-2 rounded-lg font-medium transition ${type === 'cc_payment' ? 'bg-indigo-600 border border-indigo-500 text-white shadow-[0_0_15px_rgba(79,70,229,0.4)]' : 'bg-transparent border border-gray-600 text-gray-400'}`} onClick={() => setType('cc_payment')}>จ่ายบิลบัตรฯ</button>
+                <button type="button" className={`py-1 sm:py-2 rounded-lg font-medium transition ${type === 'transfer' ? 'bg-teal-600 border border-teal-500 text-white shadow-[0_0_15px_rgba(20,184,166,0.4)]' : 'bg-transparent border border-gray-600 text-gray-400'}`} style={type === 'transfer' ? { backgroundColor: '#0d9488', borderColor: '#0d9488' } : {}} onClick={() => setType('transfer')}>โอนย้าย/เก็บ</button>
               </div>
               
               <div className="grid grid-cols-2 gap-4">
@@ -519,10 +520,10 @@ function App() {
 
               <div>
                 <label>รายละเอียด</label>
-                <input type="text" placeholder={type === 'expense' ? 'เช่น เติมน้ำมัน...' : type === 'cc_payment' ? 'เช่น จ่ายบิลบัตรเครดิตรอบเดือน...' : 'เช่น เงินเดือน...'} value={memo} onChange={e => setMemo(e.target.value)} />
+                <input type="text" placeholder={type === 'expense' ? 'เช่น เติมน้ำมัน...' : type === 'cc_payment' ? 'เช่น จ่ายบิลบัตรเครดิตรอบเดือน...' : type === 'transfer' ? 'เช่น โอนเงินเข้าออมทรัพย์...' : 'เช่น เงินเดือน...'} value={memo} onChange={e => setMemo(e.target.value)} />
               </div>
 
-              {type !== 'cc_payment' && (
+              {type !== 'cc_payment' && type !== 'transfer' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="flex items-center justify-between">
@@ -557,6 +558,12 @@ function App() {
               {type === 'cc_payment' && (
                  <div className="p-3 bg-indigo-900/30 border border-indigo-500/50 rounded-lg text-sm text-indigo-300">
                     ℹ️ การ <b>"จ่ายบิลบัตรเครดิต"</b> จะหักยอดออกจาก <u className="px-1 text-white">เงินในบัญชี</u> และไปลดยอด <u className="px-1 text-white">หนี้บัตรสะสม</u> ให้โดยอัตโนมัติ (และไม่ถูกนับซ้ำเป็นรายจ่ายของเดือนนี้อีก)
+                 </div>
+              )}
+
+              {type === 'transfer' && (
+                 <div className="p-3 bg-teal-900/30 border border-teal-500/50 rounded-lg text-sm text-teal-300">
+                    ℹ️ <b>"โอนย้าย / เก็บเงิน"</b> ใช้จดบันทึกช่วยจำเมื่อโยกเงินระหว่างบัญชีของตัวเอง <u className="px-1 text-white">จะไม่มีผลต่อยอดเงินรวม</u> และไม่ถูกคำนวณเป็นรายรับ/รายจ่ายให้ซ้ำซ้อน
                  </div>
               )}
 
@@ -597,11 +604,14 @@ function App() {
                         {tx.type === 'cc_payment' && (
                           <span className="text-[11px] text-indigo-300 border border-indigo-500/50 px-1.5 py-0.5 rounded print:text-indigo-700 whitespace-nowrap">💳 ชำระบัตรเครดิต</span>
                         )}
+                        {tx.type === 'transfer' && (
+                          <span className="text-[11px] text-teal-300 border border-teal-500/50 px-1.5 py-0.5 rounded print:text-teal-700 whitespace-nowrap">🔄 โอนภายใน</span>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
-                      <span className={`font-bold ${tx.type === 'income' ? 'text-green print:text-green-700' : tx.type === 'cc_payment' ? 'text-indigo-400 print:text-indigo-700' : 'text-red print:text-red-700'}`}>
-                        {tx.type === 'income' ? '+' : '-'} {formatMoney(tx.amount)}
+                      <span className={`font-bold ${tx.type === 'income' ? 'text-green print:text-green-700' : tx.type === 'transfer' ? 'text-teal-400 print:text-teal-700' : tx.type === 'cc_payment' ? 'text-indigo-400 print:text-indigo-700' : 'text-red print:text-red-700'}`}>
+                        {tx.type === 'income' ? '+' : tx.type === 'transfer' ? '↔' : '-'} {formatMoney(tx.amount)}
                       </span>
                       <button onClick={() => deleteTransaction(tx.id)} className="text-gray-500 hover:text-red-500 transition-colors bg-transparent p-1 shadow-none no-print"> <Trash2 size={16} /> </button>
                     </div>
