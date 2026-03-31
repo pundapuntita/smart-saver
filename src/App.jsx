@@ -37,12 +37,15 @@ const DEFAULT_BUDGETS = {
   'อื่นๆ': 1000,
 };
 
+const DEFAULT_INCOME_CATEGORIES = ['เงินเดือน', 'ฟรีแลนซ์/งานเสริม', 'คืนเงิน/เงินค้าง', 'โบนัส/ปันผล', 'อื่นๆ'];
+
 const PAYMENT_METHODS = ['เงินสด', 'โอน', 'บัตรเครดิต', 'ช้อปปี้'];
 
 function App() {
   const [accounts, setAccounts] = useState([{ id: '1', name: 'บัญชีหลัก', balance: 0 }]);
   const [transactions, setTransactions] = useState([]);
   const [budgets, setBudgets] = useState(DEFAULT_BUDGETS);
+  const [incomeCategories, setIncomeCategories] = useState(DEFAULT_INCOME_CATEGORIES);
   const [projects, setProjects] = useState([]);
   
   const [type, setType] = useState('expense');
@@ -71,6 +74,7 @@ function App() {
         if (parsed.accounts && Array.isArray(parsed.accounts)) setAccounts(parsed.accounts);
         setTransactions(parsed.transactions || []);
         if (parsed.budgets) setBudgets(Object.keys(parsed.budgets).length > 0 ? parsed.budgets : DEFAULT_BUDGETS);
+        if (parsed.incomeCategories) setIncomeCategories(parsed.incomeCategories.length > 0 ? parsed.incomeCategories : DEFAULT_INCOME_CATEGORIES);
         if (parsed.projects) setProjects(parsed.projects);
       } catch (e) {
         console.error('Failed to load data', e);
@@ -79,10 +83,16 @@ function App() {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('smartSaverData', JSON.stringify({ accounts, transactions, budgets, projects }));
-  }, [accounts, transactions, budgets, projects]);
+    localStorage.setItem('smartSaverData', JSON.stringify({ accounts, transactions, budgets, incomeCategories, projects }));
+  }, [accounts, transactions, budgets, incomeCategories, projects]);
 
   const CATEGORIES = useMemo(() => Object.keys(budgets), [budgets]);
+
+  // Reset category fallback when switching type
+  useEffect(() => {
+    if (type === 'income' && !incomeCategories.includes(category)) setCategory(incomeCategories[0] || 'อื่นๆ');
+    if (type === 'expense' && !CATEGORIES.includes(category)) setCategory('อื่นๆ');
+  }, [type]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (type !== 'expense' || !memo) return;
@@ -134,8 +144,11 @@ function App() {
   // Overall calculations across ALL TIME for wallet balance
   const totalInitialBalance = useMemo(() => accounts.reduce((sum, a) => sum + (parseFloat(a.balance) || 0), 0), [accounts]);
   const totalIncomeAllTime = useMemo(() => transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0), [transactions]);
-  const totalExpenseAllTime = useMemo(() => transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0), [transactions]);
-  const currentBalance = useMemo(() => totalInitialBalance + totalIncomeAllTime - totalExpenseAllTime, [totalInitialBalance, totalIncomeAllTime, totalExpenseAllTime]);
+  const cashExpenseAllTime = useMemo(() => transactions.filter(t => t.type === 'expense' && t.paymentMethod !== 'บัตรเครดิต').reduce((sum, t) => sum + t.amount, 0), [transactions]);
+  const ccExpenseAllTime = useMemo(() => transactions.filter(t => t.type === 'expense' && t.paymentMethod === 'บัตรเครดิต').reduce((sum, t) => sum + t.amount, 0), [transactions]);
+  const ccPaymentAllTime = useMemo(() => transactions.filter(t => t.type === 'cc_payment').reduce((sum, t) => sum + t.amount, 0), [transactions]);
+  const currentBalance = useMemo(() => totalInitialBalance + totalIncomeAllTime - cashExpenseAllTime - ccPaymentAllTime, [totalInitialBalance, totalIncomeAllTime, cashExpenseAllTime, ccPaymentAllTime]);
+  const currentCCDebt = useMemo(() => ccExpenseAllTime - ccPaymentAllTime, [ccExpenseAllTime, ccPaymentAllTime]);
 
   const monthIncome = useMemo(() => filteredTransactions.filter(t => t.type === 'income' && !t.projectId).reduce((sum, t) => sum + t.amount, 0), [filteredTransactions]);
   const monthExpense = useMemo(() => filteredTransactions.filter(t => t.type === 'expense' && !t.projectId).reduce((sum, t) => sum + t.amount, 0), [filteredTransactions]);
@@ -232,8 +245,8 @@ function App() {
     const newTx = {
       id: Date.now().toString(),
       type, amount: parseFloat(amount),
-      memo: memo || (type === 'income' ? 'รายรับ' : 'รายจ่าย'),
-      category: type === 'expense' && !selectedProjectId ? category : null,
+      memo: memo || (type === 'income' ? 'รายรับ' : type === 'cc_payment' ? 'ชำระบิลบัตรเครดิต' : 'รายจ่าย'),
+      category: (type === 'expense' && !selectedProjectId) || type === 'income' ? category : null,
       paymentMethod: type === 'expense' ? paymentMethod : null,
       date: new Date(dateStr).toISOString(),
       projectId: selectedProjectId || null
@@ -441,14 +454,24 @@ function App() {
           </div>
         </div>
         
-        <div className="glass-card flex flex-col items-center justify-center text-center">
-          <TrendingUp size={36} className="mb-3" style={{ color: currentBalance >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' }} />
-          <h2 className="text-lg font-bold mb-2">เงินคงเหลือรวม (All Time)</h2>
-          <div className="mt-2 text-sm text-muted mb-2">(รวมเงินต้น + รับ - จ่ายสุทธิ)</div>
-          <div className="mt-2">
-            <span className={`text-4xl font-black ${currentBalance < 0 ? 'text-red' : 'text-green'}`}>
+        <div className="glass-card flex flex-col justify-center gap-4">
+          <div className="flex justify-between items-center border-b border-gray-700 pb-3 mt-1">
+            <div className="text-left">
+              <h2 className="text-sm font-bold text-gray-300">เงินคงเหลือ (ในบัญชี)</h2>
+              <div className="text-xs text-muted pr-2 hidden sm:block">รวมเงินต้น + รับ - จ่าย (ไม่รวมรูดบัตร) - จ่ายบิลบัตร</div>
+            </div>
+            <div className={`text-2xl font-black whitespace-nowrap ${currentBalance < 0 ? 'text-red-500' : 'text-green-500'}`}>
               ฿ {formatMoney(currentBalance)}
-            </span>
+            </div>
+          </div>
+          <div className="flex justify-between items-center pt-1 mb-1">
+            <div className="text-left">
+              <h2 className="text-sm font-bold text-indigo-400">ยอดหนี้บัตรสะสม (รอจ่าย)</h2>
+              <div className="text-xs text-muted">ยอดรูดสะสม - ยอดจ่ายบิลสะสม</div>
+            </div>
+            <div className={`text-xl font-black whitespace-nowrap ${currentCCDebt > 0 ? 'text-orange-400' : 'text-green-500'}`}>
+              ฿ {formatMoney(Math.max(0, currentCCDebt))}
+            </div>
           </div>
         </div>
       </section>
@@ -477,9 +500,10 @@ function App() {
               <Plus size={20} /> เพิ่มรายการใหม่
             </h2>
             <form onSubmit={handleAddTransaction} className="flex flex-col gap-4">
-              <div className="flex gap-4">
-                <button type="button" className={`flex-1 py-2 rounded-lg font-medium transition ${type === 'income' ? 'bg-green-600 border border-green-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.4)]' : 'bg-transparent border border-gray-600 text-gray-400'}`} style={type === 'income' ? { backgroundColor: 'var(--accent-green)', borderColor: 'var(--accent-green)' } : {}} onClick={() => setType('income')}>รายรับ</button>
-                <button type="button" className={`flex-1 py-2 rounded-lg font-medium transition ${type === 'expense' ? 'bg-red-600 border border-red-500 text-white shadow-[0_0_15px_rgba(239,68,68,0.4)]' : 'bg-transparent border border-gray-600 text-gray-400'}`} style={type === 'expense' ? { backgroundColor: 'var(--accent-red)', borderColor: 'var(--accent-red)' } : {}} onClick={() => setType('expense')}>รายจ่าย</button>
+              <div className="flex gap-2 text-sm md:text-base">
+                <button type="button" className={`flex-1 py-1 sm:py-2 rounded-lg font-medium transition ${type === 'income' ? 'bg-green-600 border border-green-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.4)]' : 'bg-transparent border border-gray-600 text-gray-400'}`} style={type === 'income' ? { backgroundColor: 'var(--accent-green)', borderColor: 'var(--accent-green)' } : {}} onClick={() => setType('income')}>รายรับ</button>
+                <button type="button" className={`flex-1 py-1 sm:py-2 rounded-lg font-medium transition ${type === 'expense' ? 'bg-red-600 border border-red-500 text-white shadow-[0_0_15px_rgba(239,68,68,0.4)]' : 'bg-transparent border border-gray-600 text-gray-400'}`} style={type === 'expense' ? { backgroundColor: 'var(--accent-red)', borderColor: 'var(--accent-red)' } : {}} onClick={() => setType('expense')}>รายจ่าย</button>
+                <button type="button" className={`flex-1 py-1 sm:py-2 rounded-lg font-medium transition ${type === 'cc_payment' ? 'bg-indigo-600 border border-indigo-500 text-white shadow-[0_0_15px_rgba(79,70,229,0.4)]' : 'bg-transparent border border-gray-600 text-gray-400'}`} onClick={() => setType('cc_payment')}>จ่ายบิลบัตรฯ</button>
               </div>
               
               <div className="grid grid-cols-2 gap-4">
@@ -495,32 +519,45 @@ function App() {
 
               <div>
                 <label>รายละเอียด</label>
-                <input type="text" placeholder={type === 'expense' ? 'เช่น เติมน้ำมัน...' : 'เช่น เงินเดือน...'} value={memo} onChange={e => setMemo(e.target.value)} />
+                <input type="text" placeholder={type === 'expense' ? 'เช่น เติมน้ำมัน...' : type === 'cc_payment' ? 'เช่น จ่ายบิลบัตรเครดิตรอบเดือน...' : 'เช่น เงินเดือน...'} value={memo} onChange={e => setMemo(e.target.value)} />
               </div>
 
-              {type === 'expense' && (
+              {type !== 'cc_payment' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="flex items-center justify-between">
-                       หมวดหมู่ (ปกติ)
-                       <span className="text-xs text-blue-400">ถ้าเลือกโปรเจคพิเศษจะไม่คิดตรงนี้</span>
+                       {type === 'income' ? 'หมวดหมู่รายรับ' : 'หมวดหมู่ (ปกติ)'}
+                       {type === 'expense' && <span className="text-xs text-blue-400">ถ้าเลือกโปรเจคพิเศษจะไม่คิดตรงนี้</span>}
                     </label>
-                    <select value={category} onChange={e => setCategory(e.target.value)} disabled={!!selectedProjectId}>
-                      {CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                    <select value={category} onChange={e => setCategory(e.target.value)} disabled={type === 'expense' && !!selectedProjectId}>
+                      {type === 'income' 
+                        ? incomeCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)
+                        : CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)
+                      }
                     </select>
                   </div>
-                  <div>
-                    <label>ผูกกับโปรเจคพิเศษ (แยกงบอิสระ)</label>
-                    <select value={selectedProjectId} onChange={e => setSelectedProjectId(e.target.value)}>
-                      <option value="">-- ไม่ผูกโปรเจค (รายจ่ายปกติ) --</option>
-                      {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                    </select>
-                  </div>
-                  <div className="md:col-span-2">
-                    <label>ช่องทางชำระเงิน</label>
-                    <PaymentChips />
-                  </div>
+                  {type === 'expense' && (
+                    <>
+                      <div>
+                        <label>ผูกกับโปรเจคพิเศษ (แยกงบอิสระ)</label>
+                        <select value={selectedProjectId} onChange={e => setSelectedProjectId(e.target.value)}>
+                          <option value="">-- ไม่ผูกโปรเจค (รายจ่ายปกติ) --</option>
+                          {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                        </select>
+                      </div>
+                      <div className="md:col-span-2">
+                        <label>ช่องทางชำระเงิน</label>
+                        <PaymentChips />
+                      </div>
+                    </>
+                  )}
                 </div>
+              )}
+
+              {type === 'cc_payment' && (
+                 <div className="p-3 bg-indigo-900/30 border border-indigo-500/50 rounded-lg text-sm text-indigo-300">
+                    ℹ️ การ <b>"จ่ายบิลบัตรเครดิต"</b> จะหักยอดออกจาก <u className="px-1 text-white">เงินในบัญชี</u> และไปลดยอด <u className="px-1 text-white">หนี้บัตรสะสม</u> ให้โดยอัตโนมัติ (และไม่ถูกนับซ้ำเป็นรายจ่ายของเดือนนี้อีก)
+                 </div>
               )}
 
               <button type="submit" className="btn-primary mt-2">บันทึกรายการ</button>
@@ -543,6 +580,9 @@ function App() {
                         <span className="text-[11px] text-muted font-light px-1.5 py-0.5 bg-slate-800 rounded border border-gray-700 print:border-gray-300 print:bg-transparent print:text-black whitespace-nowrap">
                           {displayDate(tx.date)}
                         </span>
+                        {tx.type === 'income' && tx.category && (
+                          <span className="text-[11px] text-green border border-green-500/30 px-1.5 py-0.5 rounded print:text-green-700 whitespace-nowrap">{tx.category}</span>
+                        )}
                         {tx.type === 'expense' && !tx.projectId && (
                           <span className="text-[11px] text-blue-400 border border-blue-400/30 px-1.5 py-0.5 rounded print:text-blue-700 whitespace-nowrap">{tx.category}</span>
                         )}
@@ -554,10 +594,13 @@ function App() {
                         {tx.type === 'expense' && (
                           <span className="text-[11px] text-indigo-400 border border-indigo-400/30 px-1.5 py-0.5 rounded print:text-indigo-700 whitespace-nowrap">{tx.paymentMethod}</span>
                         )}
+                        {tx.type === 'cc_payment' && (
+                          <span className="text-[11px] text-indigo-300 border border-indigo-500/50 px-1.5 py-0.5 rounded print:text-indigo-700 whitespace-nowrap">💳 ชำระบัตรเครดิต</span>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
-                      <span className={`font-bold ${tx.type === 'income' ? 'text-green print:text-green-700' : 'text-red print:text-red-700'}`}>
+                      <span className={`font-bold ${tx.type === 'income' ? 'text-green print:text-green-700' : tx.type === 'cc_payment' ? 'text-indigo-400 print:text-indigo-700' : 'text-red print:text-red-700'}`}>
                         {tx.type === 'income' ? '+' : '-'} {formatMoney(tx.amount)}
                       </span>
                       <button onClick={() => deleteTransaction(tx.id)} className="text-gray-500 hover:text-red-500 transition-colors bg-transparent p-1 shadow-none no-print"> <Trash2 size={16} /> </button>
