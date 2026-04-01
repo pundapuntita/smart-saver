@@ -652,7 +652,7 @@ function SmartSaverApp({ profileName }) {
                       <span className={`font-bold ${tx.type === 'income' ? 'text-green print:text-green-700' : tx.type === 'transfer' ? 'text-teal-400 print:text-teal-700' : tx.type === 'cc_payment' ? 'text-indigo-400 print:text-indigo-700' : 'text-red print:text-red-700'}`}>
                         {tx.type === 'income' ? '+' : tx.type === 'transfer' ? '↔' : '-'} {formatMoney(tx.amount)}
                       </span>
-                      <div className="flex flex-col gap-1 items-end ml-1">
+                      <div className="flex gap-1 sm:gap-2 items-center ml-2">
                         <button onClick={() => handleEdit(tx)} className="text-gray-400 hover:text-blue-400 transition-colors bg-transparent p-1 shadow-none no-print"> <Edit2 size={16} /> </button>
                         <button onClick={() => deleteTransaction(tx.id)} className="text-gray-400 hover:text-red-400 transition-colors bg-transparent p-1 shadow-none no-print"> <Trash2 size={16} /> </button>
                       </div>
@@ -874,25 +874,29 @@ export default function App() {
   };
 
   return (
-    <div className="relative w-full overflow-hidden">
-      {/* Profile Switcher floating at top right */}
-      <div className="absolute top-2 right-2 sm:top-5 sm:right-5 z-[100] flex gap-2 no-print bg-[#0f172a] p-1.5 rounded-xl border border-gray-700 shadow-[0_4px_20px_rgba(0,0,0,0.5)]">
-        <button 
-          onClick={() => handleProfileChange('ปัณด้า')}
-          className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-all ${profile === 'ปัณด้า' ? 'bg-pink-600 text-white shadow-[0_0_15px_rgba(219,39,119,0.5)]' : 'bg-transparent text-gray-400 hover:text-white'}`}
-        >
-          👩🏻 ของปัณด้า
-        </button>
-        <button 
-          onClick={() => handleProfileChange('ก้อง')}
-          className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-all ${profile === 'ก้อง' ? 'bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.5)]' : 'bg-transparent text-gray-400 hover:text-white'}`}
-        >
-          👨🏻 ของก้อง
-        </button>
+    <div className="w-full min-h-screen flex flex-col items-center">
+      {/* Profile Switcher placed in normal flow to avoid overlapping header on small phones */}
+      <div className="w-full max-w-[1000px] flex justify-end px-4 pt-4 sm:px-4 sm:pt-6 z-[100] no-print relative">
+        <div className="flex gap-1 sm:gap-2 bg-[#0f172a] p-1 sm:p-1.5 rounded-xl border border-gray-700 shadow-[0_4px_20px_rgba(0,0,0,0.5)]">
+          <button 
+            onClick={() => handleProfileChange('ปัณด้า')}
+            className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${profile === 'ปัณด้า' ? 'bg-pink-600 text-white shadow-[0_0_15px_rgba(219,39,119,0.5)]' : 'bg-transparent text-gray-400 hover:text-white'}`}
+          >
+            👩🏻 ของปัณด้า
+          </button>
+          <button 
+            onClick={() => handleProfileChange('ก้อง')}
+            className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${profile === 'ก้อง' ? 'bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.5)]' : 'bg-transparent text-gray-400 hover:text-white'}`}
+          >
+            👨🏻 ของก้อง
+          </button>
+        </div>
       </div>
       
       {/* Remount entirely when profile changes to sandbox all states perfectly */}
-      <SmartSaverApp key={profile} profileName={profile} />
+      <div className="w-full relative sm:mt-[-1rem]">
+        <SmartSaverApp key={profile} profileName={profile} />
+      </div>
     </div>
   );
 }
