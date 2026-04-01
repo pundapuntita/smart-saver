@@ -44,6 +44,8 @@ const PAYMENT_METHODS = ['เงินสด', 'โอน', 'บัตรเค�
 
 function SmartSaverApp({ profileName }) {
   const [editingId, setEditingId] = useState(null);
+  const [editingAccountId, setEditingAccountId] = useState(null);
+  const [tempAccountVal, setTempAccountVal] = useState("");
   const [accounts, setAccounts] = useState([{ id: '1', name: 'บัญชีหลัก', balance: 0 }]);
   const [transactions, setTransactions] = useState([]);
   const [budgets, setBudgets] = useState(DEFAULT_BUDGETS);
@@ -303,11 +305,22 @@ function SmartSaverApp({ profileName }) {
   const addAccount = () => {
     const name = prompt('กรุณาใส่ชื่อบัญชีใหม่:', 'บัญชีใหม่');
     if (!name) return;
-    setAccounts(prev => [...prev, { id: 'acc_'+Date.now(), name, balance: 0 }]);
+    const newId = 'acc_'+Date.now();
+    setAccounts(prev => [...prev, { id: newId, name, balance: 0 }]);
+    setEditingAccountId(newId);
+    setTempAccountVal("0");
   };
 
   const updateAccountBalance = (id, newBalance) => {
     setAccounts(prev => prev.map(a => a.id === id ? { ...a, balance: newBalance } : a));
+  };
+  const handleEditBalance = (acc) => {
+    setEditingAccountId(acc.id);
+    setTempAccountVal(acc.balance);
+  };
+  const saveBalance = (id) => {
+    updateAccountBalance(id, tempAccountVal);
+    setEditingAccountId(null);
   };
   const editAccountName = (id, currentName) => {
     const name = prompt('แก้ไขชื่อบัญชี:', currentName);
@@ -464,13 +477,23 @@ function SmartSaverApp({ profileName }) {
           <div className="flex flex-col gap-3 w-full max-h-[160px] overflow-y-auto pr-2 mb-4">
             {accounts.map(acc => (
               <div key={acc.id} className="flex items-center justify-between text-sm bg-slate-800/40 p-2.5 rounded border border-slate-700/50 min-h-[44px]">
-                 <div className="font-medium flex-1 text-left cursor-pointer hover:text-blue-400 transition-colors flex items-center gap-1 min-w-0" onClick={() => editAccountName(acc.id, acc.name)}>
-                    <span className="truncate">{acc.name}</span><span className="text-xs text-muted opacity-60 shrink-0">✎</span>
+                 <div className="font-medium flex-1 text-left cursor-pointer hover:text-blue-400 transition-colors flex items-center gap-1 min-w-0 group" onClick={() => editAccountName(acc.id, acc.name)}>
+                    <span className="truncate">{acc.name}</span><span className="text-[10px] text-muted opacity-0 group-hover:opacity-60 transition-opacity shrink-0 mt-0.5" title="แก้ไขชื่อ">✎</span>
                  </div>
                  <div className="flex items-center justify-end gap-1.5 shrink-0 ml-3">
                     <span className="text-muted font-medium">฿</span>
-                    <input type="number" value={acc.balance} onChange={e => updateAccountBalance(acc.id, e.target.value)} className="w-[70px] bg-transparent border-b border-gray-600 focus:border-blue-500 rounded-none p-0 pb-0.5 text-right font-bold text-main" style={{ boxShadow: 'none' }} />
-                    <button onClick={() => deleteAccount(acc.id)} className="text-gray-500 hover:text-red-400 transition-colors bg-transparent border-none p-1 shadow-none rounded-full flex items-center justify-center h-6 w-6"> × </button>
+                    {editingAccountId === acc.id ? (
+                      <div className="flex items-center gap-1.5">
+                        <input type="number" value={tempAccountVal} onChange={e => setTempAccountVal(e.target.value)} onKeyDown={(e) => { if(e.key === 'Enter') saveBalance(acc.id); }} className="w-[70px] sm:w-[90px] h-[28px] bg-slate-900 border border-blue-500 rounded px-2 text-right font-bold text-main" style={{ boxShadow: 'none' }} autoFocus />
+                        <button onClick={() => saveBalance(acc.id)} className="text-white bg-blue-600 hover:bg-blue-500 text-xs px-2 h-[28px] rounded transition-colors shadow-sm font-bold flex items-center justify-center">บันทึก</button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5 group/bal cursor-pointer" onClick={() => handleEditBalance(acc)}>
+                        <span className="text-right font-bold text-main group-hover/bal:text-blue-400 transition-colors" style={{ minWidth: '35px' }}>{formatMoney(acc.balance || 0)}</span>
+                        <span className="text-[10px] text-muted opacity-0 group-hover/bal:opacity-60 transition-opacity flex items-center h-full mt-0.5" title="แก้ไขจำนวนเงิน">✎</span>
+                      </div>
+                    )}
+                    <button onClick={() => deleteAccount(acc.id)} className="text-gray-500 hover:text-red-400 transition-colors bg-transparent border-none p-1 shadow-none rounded-full flex items-center justify-center h-6 w-6 ml-1" title="ลบบัญชี"> × </button>
                  </div>
               </div>
             ))}
