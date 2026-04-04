@@ -63,6 +63,13 @@ function SmartSaverApp({ profileName }) {
   });
   const [paymentMethod, setPaymentMethod] = useState('โอน');
   const [selectedProjectId, setSelectedProjectId] = useState('');
+  const [selectedIncomeAccountId, setSelectedIncomeAccountId] = useState('');
+
+  useEffect(() => {
+    if (accounts.length > 0 && !accounts.some(a => a.id === selectedIncomeAccountId)) {
+      setSelectedIncomeAccountId(accounts[0].id);
+    }
+  }, [accounts, selectedIncomeAccountId]);
 
   // View Month State
   const [viewMonth, setViewMonth] = useState(() => {
@@ -153,8 +160,19 @@ function SmartSaverApp({ profileName }) {
   }, [transactions, projects]);
 
   // Overall calculations across ALL TIME for wallet balance
-  const totalInitialBalance = useMemo(() => accounts.reduce((sum, a) => sum + (parseFloat(a.balance) || 0), 0), [accounts]);
-  const totalIncomeAllTime = useMemo(() => transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0), [transactions]);
+  const displayBalances = useMemo(() => {
+    let bals = {};
+    accounts.forEach(a => bals[a.id] = parseFloat(a.balance) || 0);
+    transactions.forEach(t => {
+      if (t.type === 'income' && t.targetAccountId && bals[t.targetAccountId] !== undefined) {
+        bals[t.targetAccountId] += t.amount;
+      }
+    });
+    return bals;
+  }, [accounts, transactions]);
+
+  const totalInitialBalance = useMemo(() => Object.values(displayBalances).reduce((sum, val) => sum + val, 0), [displayBalances]);
+  const totalIncomeAllTime = useMemo(() => transactions.filter(t => t.type === 'income' && !t.targetAccountId).reduce((sum, t) => sum + t.amount, 0), [transactions]);
   const cashExpenseAllTime = useMemo(() => transactions.filter(t => t.type === 'expense' && t.paymentMethod !== 'บัตรเครดิต').reduce((sum, t) => sum + t.amount, 0), [transactions]);
   const ccExpenseAllTime = useMemo(() => transactions.filter(t => t.type === 'expense' && t.paymentMethod === 'บัตรเครดิต').reduce((sum, t) => sum + t.amount, 0), [transactions]);
   const ccPaymentAllTime = useMemo(() => transactions.filter(t => t.type === 'cc_payment').reduce((sum, t) => sum + t.amount, 0), [transactions]);
@@ -259,20 +277,23 @@ function SmartSaverApp({ profileName }) {
     setPaymentMethod(tx.paymentMethod || 'โอน');
     setDateStr(tx.date.split('T')[0]);
     setSelectedProjectId(tx.projectId || '');
+    setSelectedIncomeAccountId(tx.targetAccountId || '');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleAddTransaction = (e) => {
     e.preventDefault();
     if (!amount || isNaN(amount) || amount <= 0) return;
+    const isIncome = type === 'income';
     const newTx = {
       id: editingId || Date.now().toString(),
       type, amount: parseFloat(amount),
-      memo: memo || (type === 'income' ? 'รายรับ' : type === 'transfer' ? 'โอนเก็บ / ภายใน' : type === 'cc_payment' ? 'ชำระบิลบัตรเครดิต' : 'รายจ่าย'),
-      category: (type === 'expense' && !selectedProjectId) || type === 'income' ? category : null,
+      memo: memo || (isIncome ? 'รายรับ' : type === 'transfer' ? 'โอนเก็บ / ภายใน' : type === 'cc_payment' ? 'ชำระบิลบัตรเครดิต' : 'รายจ่าย'),
+      category: (type === 'expense' && !selectedProjectId) || isIncome ? category : null,
       paymentMethod: type === 'expense' ? paymentMethod : null,
       date: new Date(dateStr).toISOString(),
-      projectId: selectedProjectId || null
+      projectId: selectedProjectId || null,
+      targetAccountId: isIncome ? (selectedIncomeAccountId || null) : null
     };
     
     if (editingId) {
@@ -489,8 +510,8 @@ function SmartSaverApp({ profileName }) {
                       </div>
                     ) : (
                       <div className="flex items-center gap-1.5 group/bal cursor-pointer" onClick={() => handleEditBalance(acc)}>
-                        <span className="text-right font-bold text-main group-hover/bal:text-blue-400 transition-colors" style={{ minWidth: '35px' }}>{formatMoney(acc.balance || 0)}</span>
-                        <span className="text-[10px] text-muted opacity-0 group-hover/bal:opacity-60 transition-opacity flex items-center h-full mt-0.5" title="แก้ไขจำนวนเงิน">✎</span>
+                        <span className="text-right font-bold text-main group-hover/bal:text-blue-400 transition-colors" style={{ minWidth: '35px' }}>{formatMoney(displayBalances[acc.id] || 0)}</span>
+                        <span className="text-[10px] text-muted opacity-0 group-hover/bal:opacity-60 transition-opacity flex items-center h-full mt-0.5" title="แก้ไขจำนวนเงินเริ่มต้น">✎</span>
                       </div>
                     )}
                     <button onClick={() => deleteAccount(acc.id)} className="text-gray-500 hover:text-red-400 transition-colors bg-transparent border-none p-1 shadow-none rounded-full flex items-center justify-center h-6 w-6 ml-1" title="ลบบัญชี"> × </button>
@@ -587,6 +608,14 @@ function SmartSaverApp({ profileName }) {
                       }
                     </select>
                   </div>
+                  {type === 'income' && (
+                    <div>
+                      <label>เข้าบัญชี (ถ้ามี)</label>
+                      <select value={selectedIncomeAccountId} onChange={e => setSelectedIncomeAccountId(e.target.value)}>
+                        {accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
+                      </select>
+                    </div>
+                  )}
                   {type === 'expense' && (
                     <>
                       <div>
