@@ -147,7 +147,7 @@ function SmartSaverApp({ profileName }) {
 
   const filteredTransactions = useMemo(() => {
     return transactions.filter(t => {
-      const isCC = t.paymentMethod === 'บัตรเครดิต' || (t.type === 'cc_payment' && (!t.paymentMethod || t.paymentMethod === 'บัตรเครดิต'));
+      const isCC = t.paymentMethod === 'บัตรเครดิต' && t.type !== 'cc_payment';
       return getCycleMonth(t.date, isCC) === viewMonth;
     });
   }, [transactions, viewMonth]);
