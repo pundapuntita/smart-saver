@@ -148,21 +148,22 @@ function SmartSaverApp({ profileName }) {
 
   const filteredTransactions = useMemo(() => {
     return transactions.filter(t => {
-      const isCC = t.paymentMethod === 'บัตรเครดิต' && t.type !== 'cc_payment';
-      return getCycleMonth(t.date, isCC) === viewMonth;
+      const d = new Date(t.date);
+      const localYYYYMM = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      return localYYYYMM === viewMonth;
     });
   }, [transactions, viewMonth]);
 
-  const allTimeProjectExpenses = useMemo(() => {
+  const currentMonthProjectExpenses = useMemo(() => {
     const map = {};
     projects.forEach(p => map[p.id] = 0);
-    transactions.forEach(t => {
+    filteredTransactions.forEach(t => {
       if (t.type === 'expense' && t.projectId && map[t.projectId] !== undefined) {
         map[t.projectId] += t.amount;
       }
     });
     return map;
-  }, [transactions, projects]);
+  }, [filteredTransactions, projects]);
 
   // Overall calculations across ALL TIME for wallet balance
   const displayBalances = useMemo(() => {
@@ -229,35 +230,50 @@ function SmartSaverApp({ profileName }) {
     const summary = {};
     PAYMENT_METHODS.forEach(m => {
       if (m === 'บัตรเครดิต') {
-        summary[m] = { total: 0, fromPrevMonth: 0, fromCurrentMonth: 0, paid: 0 };
+        summary[m] = { total: 0, fromPrevMonth: 0, fromCurrentMonth: 0, paid: 0, project: 0 };
       } else {
         summary[m] = 0;
       }
     });
 
-    filteredTransactions.forEach(t => {
-      if (t.type === 'expense' && !t.projectId) {
+    transactions.forEach(t => {
+      const d = new Date(t.date);
+      const calendarYYYYMM = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const ccBillYYYYMM = getCycleMonth(t.date, true);
+
+      if (t.type === 'expense') {
         const m = t.paymentMethod || 'โอน';
         if (m === 'บัตรเครดิต') {
-          summary[m].total += t.amount;
-          const d = new Date(t.date);
-          if (d.getDate() >= 20) {
-            summary[m].fromPrevMonth += t.amount;
-          } else {
-            summary[m].fromCurrentMonth += t.amount;
+          if (ccBillYYYYMM === viewMonth) {
+            summary[m].total += t.amount;
+            if (t.projectId) {
+              summary[m].project += t.amount;
+            } else {
+              if (d.getDate() >= 20) {
+                summary[m].fromPrevMonth += t.amount;
+              } else {
+                summary[m].fromCurrentMonth += t.amount;
+              }
+            }
           }
-        } else if (summary[m] !== undefined) {
-          summary[m] += t.amount;
+        } else {
+          if (calendarYYYYMM === viewMonth && !t.projectId) {
+            if (summary[m] !== undefined) {
+              summary[m] += t.amount;
+            }
+          }
         }
       } else if (t.type === 'cc_payment') {
-        const m = t.paymentMethod || 'บัตรเครดิต';
-        if (m === 'บัตรเครดิต') {
-          summary[m].paid += t.amount;
+        if (calendarYYYYMM === viewMonth) {
+          const m = t.paymentMethod || 'บัตรเครดิต';
+          if (m === 'บัตรเครดิต') {
+            summary[m].paid += t.amount;
+          }
         }
       }
     });
     return summary;
-  }, [filteredTransactions, viewMonth]);
+  }, [transactions, viewMonth]);
 
   const pieData = useMemo(() => {
     return CATEGORIES.map(cat => ({
@@ -417,8 +433,11 @@ function SmartSaverApp({ profileName }) {
     PAYMENT_METHODS.forEach(m => {
       if (m === 'บัตรเครดิต') {
         paymentRows.push([m + ' (รวมรูด)', paymentMethodSummary[m].total]);
-        paymentRows.push(['  ↳ ยกมาจากเดือนก่อน', paymentMethodSummary[m].fromPrevMonth]);
-        paymentRows.push(['  ↳ ใช้จ่ายเดือนนี้', paymentMethodSummary[m].fromCurrentMonth]);
+        paymentRows.push(['  ↳ ยกมาจากเดือนก่อน (ปกติ)', paymentMethodSummary[m].fromPrevMonth]);
+        paymentRows.push(['  ↳ ใช้จ่ายเดือนนี้ (ปกติ)', paymentMethodSummary[m].fromCurrentMonth]);
+        if (paymentMethodSummary[m].project > 0) {
+          paymentRows.push(['  ↳ รูดโปรเจคพิเศษ', paymentMethodSummary[m].project]);
+        }
         if (paymentMethodSummary[m].paid > 0) {
           paymentRows.push(['  ↳ จ่ายบิลแล้ว', -paymentMethodSummary[m].paid]);
           paymentRows.push(['  ยอดหนี้บิลนี้ (คงเหลือ)', Math.max(0, paymentMethodSummary[m].total - paymentMethodSummary[m].paid)]);
@@ -428,8 +447,8 @@ function SmartSaverApp({ profileName }) {
       }
     });
 
-    const projectRows = [['โปรเจคพิเศษ', 'รายจ่ายสะสม (บาท)']];
-    projects.forEach(p => projectRows.push([p.name, allTimeProjectExpenses[p.id]]));
+    const projectRows = [['โปรเจคพิเศษ', 'รายจ่าย (รอบบิลนี้) (บาท)']];
+    projects.forEach(p => projectRows.push([p.name, currentMonthProjectExpenses[p.id]]));
 
     const rows = [
       [`สรุปภาพรวม (รอบบิล ${viewMonth})`],
@@ -443,7 +462,7 @@ function SmartSaverApp({ profileName }) {
       ['สรุปรายจ่ายแยกตามช่องทางชำระเงิน'],
       ...paymentRows,
       [],
-      ['สรุปโปรเจคพิเศษ (ทั้งหมด)'],
+      ['สรุปโปรเจคพิเศษ (รอบบิลนี้)'],
       ...projectRows
     ];
     
@@ -848,7 +867,7 @@ function SmartSaverApp({ profileName }) {
                     <div key={p.id} className="flex justify-between items-center bg-slate-800/40 border border-slate-700/50 p-3 rounded print:border-gray-300 group">
                       <span className="font-medium print:text-black">{p.name}</span>
                       <div className="flex items-center gap-3">
-                        <span className="font-bold text-main print:text-black">฿ {formatMoney(allTimeProjectExpenses[p.id] || 0)}</span>
+                        <span className="font-bold text-main print:text-black">฿ {formatMoney(currentMonthProjectExpenses[p.id] || 0)}</span>
                         <div className="flex gap-1 no-print opacity-0 group-hover:opacity-100 transition-opacity">
                           <button onClick={() => editProject(p.id, p.name)} className="text-gray-400 hover:text-blue-400 bg-transparent p-1 shadow-none rounded-full ml-1" title="แก้ไข">
                             <Edit2 size={14} />
@@ -883,13 +902,19 @@ function SmartSaverApp({ profileName }) {
                                 <span className="font-bold print:text-black">฿ {formatMoney(d.total)}</span>
                              </div>
                              <div className="flex justify-between items-center pl-2 text-xs opacity-80 print:text-black">
-                                <span>↳ ยอดยกมาจากเดือนก่อน (20 - สิ้นเดือน)</span>
+                                <span>↳ ยกมาจากเดือนก่อน (ปกติ)</span>
                                 <span>฿ {formatMoney(d.fromPrevMonth)}</span>
                              </div>
                              <div className="flex justify-between items-center pl-2 text-xs opacity-80 print:text-black">
-                                <span>↳ ยอดใช้จ่ายเดือนนี้ (1 - 19)</span>
+                                <span>↳ ใช้จ่ายเดือนนี้ (ปกติ)</span>
                                 <span>฿ {formatMoney(d.fromCurrentMonth)}</span>
                              </div>
+                             {d.project > 0 && (
+                               <div className="flex justify-between items-center pl-2 text-xs text-purple-400 print:text-purple-600">
+                                  <span>↳ รูดโปรเจคพิเศษ (รอบบิลนี้)</span>
+                                  <span>฿ {formatMoney(d.project)}</span>
+                               </div>
+                             )}
                              {d.paid > 0 && (
                                <div className="flex justify-between items-center pl-2 text-xs text-green-400 print:text-green-600 mt-1 pt-1 border-t border-gray-700/50">
                                   <span>↳ จ่ายบิลแล้ว (ในรอบบิลนี้)</span>
