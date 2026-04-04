@@ -859,11 +859,11 @@ function SmartSaverApp({ profileName }) {
                 <Plus size={14} /> สร้างโปรเจค
               </button>
             </div>
-            {projects.length === 0 ? (
-               <p className="text-xs text-muted mb-4">ยังไม่มีโปรเจคพิเศษ คุณสามารถสร้างไว้เพื่อแยกรวมยอด เช่น ค่าซ่อมรถ, เที่ยวญี่ปุ่น, รีโนเวทบ้าน</p>
+            {projects.filter(p => currentMonthProjectExpenses[p.id] > 0).length === 0 ? (
+               <p className="text-xs text-muted mb-4">ยังไม่มีรายจ่ายโปรเจคพิเศษในรอบบิลนี้<br/>คุณสามารถสร้างโปรเจคใหม่ หรือเลือกผูกรายจ่ายเข้าโปรเจคเดิมได้ในเมนู "ปุ่มเพิ่มรายการ"</p>
             ) : (
                 <div className="flex flex-col gap-3">
-                  {projects.map(p => (
+                  {projects.filter(p => currentMonthProjectExpenses[p.id] > 0).map(p => (
                     <div key={p.id} className="flex justify-between items-center bg-slate-800/40 border border-slate-700/50 p-3 rounded print:border-gray-300 group">
                       <span className="font-medium print:text-black">{p.name}</span>
                       <div className="flex items-center gap-3">
