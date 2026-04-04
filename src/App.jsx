@@ -147,7 +147,7 @@ function SmartSaverApp({ profileName }) {
 
   const filteredTransactions = useMemo(() => {
     return transactions.filter(t => {
-      const isCC = t.paymentMethod === 'บัตรเครดิต' || t.paymentMethod === 'ช้อปปี้';
+      const isCC = t.paymentMethod === 'บัตรเครดิต';
       return getCycleMonth(t.date, isCC) === viewMonth;
     });
   }, [transactions, viewMonth]);
@@ -227,7 +227,7 @@ function SmartSaverApp({ profileName }) {
   const paymentMethodSummary = useMemo(() => {
     const summary = {};
     PAYMENT_METHODS.forEach(m => {
-      if (m === 'บัตรเครดิต' || m === 'ช้อปปี้') {
+      if (m === 'บัตรเครดิต') {
         summary[m] = { total: 0, fromPrevMonth: 0, fromCurrentMonth: 0 };
       } else {
         summary[m] = 0;
@@ -237,7 +237,7 @@ function SmartSaverApp({ profileName }) {
     filteredTransactions.forEach(t => {
       if (t.type === 'expense' && !t.projectId) {
         const m = t.paymentMethod || 'โอน';
-        if (m === 'บัตรเครดิต' || m === 'ช้อปปี้') {
+        if (m === 'บัตรเครดิต') {
           summary[m].total += t.amount;
           const tYYYYMM = t.date.substring(0, 7);
           if (tYYYYMM < viewMonth) {
