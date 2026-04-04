@@ -681,7 +681,7 @@ function SmartSaverApp({ profileName }) {
                           {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                         </select>
                       </div>
-                      {paymentMethod !== 'บัตรเครดิต' && (
+                      {paymentMethod !== 'บัตรเครดิต' && paymentMethod !== 'ช้อปปี้' && (
                         <div>
                            <label>หักจากบัญชี</label>
                            <select value={selectedSourceAccountId} onChange={e => setSelectedSourceAccountId(e.target.value)}>
