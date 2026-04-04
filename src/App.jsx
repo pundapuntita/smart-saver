@@ -147,7 +147,7 @@ function SmartSaverApp({ profileName }) {
 
   const filteredTransactions = useMemo(() => {
     return transactions.filter(t => {
-      const isCC = t.paymentMethod === 'บัตรเครดิต';
+      const isCC = t.paymentMethod === 'บัตรเครดิต' || (t.type === 'cc_payment' && (!t.paymentMethod || t.paymentMethod === 'บัตรเครดิต'));
       return getCycleMonth(t.date, isCC) === viewMonth;
     });
   }, [transactions, viewMonth]);
@@ -228,7 +228,7 @@ function SmartSaverApp({ profileName }) {
     const summary = {};
     PAYMENT_METHODS.forEach(m => {
       if (m === 'บัตรเครดิต') {
-        summary[m] = { total: 0, fromPrevMonth: 0, fromCurrentMonth: 0 };
+        summary[m] = { total: 0, fromPrevMonth: 0, fromCurrentMonth: 0, paid: 0 };
       } else {
         summary[m] = 0;
       }
@@ -247,6 +247,11 @@ function SmartSaverApp({ profileName }) {
           }
         } else if (summary[m] !== undefined) {
           summary[m] += t.amount;
+        }
+      } else if (t.type === 'cc_payment') {
+        const m = t.paymentMethod || 'บัตรเครดิต';
+        if (m === 'บัตรเครดิต') {
+          summary[m].paid += t.amount;
         }
       }
     });
@@ -410,9 +415,13 @@ function SmartSaverApp({ profileName }) {
     const paymentRows = [['ช่องทางชำระเงิน', 'รายจ่ายเดือนรอบบิล (บาท)']];
     PAYMENT_METHODS.forEach(m => {
       if (m === 'บัตรเครดิต') {
-        paymentRows.push([m + ' (รวม)', paymentMethodSummary[m].total]);
+        paymentRows.push([m + ' (รวมรูด)', paymentMethodSummary[m].total]);
         paymentRows.push(['  ↳ ยกมาจากเดือนก่อน', paymentMethodSummary[m].fromPrevMonth]);
         paymentRows.push(['  ↳ ใช้จ่ายเดือนนี้', paymentMethodSummary[m].fromCurrentMonth]);
+        if (paymentMethodSummary[m].paid > 0) {
+          paymentRows.push(['  ↳ จ่ายบิลแล้ว', -paymentMethodSummary[m].paid]);
+          paymentRows.push(['  ยอดหนี้บิลนี้ (คงเหลือ)', Math.max(0, paymentMethodSummary[m].total - paymentMethodSummary[m].paid)]);
+        }
       } else {
         paymentRows.push([m, paymentMethodSummary[m]]);
       }
@@ -869,7 +878,7 @@ function SmartSaverApp({ profileName }) {
                         return (
                           <div key={'m-'+m} className="col-span-2 flex flex-col gap-1 bg-slate-800/50 p-2.5 rounded print:border print:border-gray-300">
                              <div className="flex justify-between items-center mb-1 pb-1 border-b border-gray-700 print:border-gray-300">
-                                <span className="text-gray-300 print:text-black font-medium">{m} <span className="text-[10px] text-indigo-400 print:text-indigo-600 font-normal">(รวมรอบบิล)</span></span>
+                                <span className="text-gray-300 print:text-black font-medium">{m} <span className="text-[10px] text-indigo-400 print:text-indigo-600 font-normal">(รวมรูด)</span></span>
                                 <span className="font-bold print:text-black">฿ {formatMoney(d.total)}</span>
                              </div>
                              <div className="flex justify-between items-center pl-2 text-xs opacity-80 print:text-black">
@@ -880,6 +889,18 @@ function SmartSaverApp({ profileName }) {
                                 <span>↳ ยอดใช้จ่ายเดือนนี้ (1 - 19)</span>
                                 <span>฿ {formatMoney(d.fromCurrentMonth)}</span>
                              </div>
+                             {d.paid > 0 && (
+                               <div className="flex justify-between items-center pl-2 text-xs text-green-400 print:text-green-600 mt-1 pt-1 border-t border-gray-700/50">
+                                  <span>↳ จ่ายบิลแล้ว (ในรอบบิลนี้)</span>
+                                  <span>- ฿ {formatMoney(d.paid)}</span>
+                               </div>
+                             )}
+                             {d.paid > 0 && (
+                               <div className="flex justify-between items-center pl-2 text-xs font-bold text-orange-400 print:text-black">
+                                  <span>ยอดหนี้บิลนี้ (คงเหลือ)</span>
+                                  <span>฿ {formatMoney(Math.max(0, d.total - d.paid))}</span>
+                               </div>
+                             )}
                           </div>
                         );
                       } else {
