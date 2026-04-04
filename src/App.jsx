@@ -108,7 +108,7 @@ function SmartSaverApp({ profileName }) {
     localStorage.setItem(`smartSaverData_${profileName}`, JSON.stringify({ accounts, transactions, budgets, incomeCategories, projects }));
   }, [accounts, transactions, budgets, incomeCategories, projects, profileName]);
 
-  const CATEGORIES = useMemo(() => Object.keys(budgets), [budgets]);
+  const CATEGORIES = useMemo(() => Object.keys(budgets).sort((a, b) => a.localeCompare(b, 'th')), [budgets]);
 
   // Reset category fallback when switching type
   useEffect(() => {
@@ -149,9 +149,23 @@ function SmartSaverApp({ profileName }) {
   const filteredTransactions = useMemo(() => {
     return transactions.filter(t => {
       const d = new Date(t.date);
-      const localYYYYMM = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      return localYYYYMM === viewMonth;
+      const calendarYYYYMM = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const ccBillYYYYMM = getCycleMonth(t.date, true);
+      
+      if (t.type === 'expense' && t.paymentMethod === 'บัตรเครดิต') {
+        return ccBillYYYYMM === viewMonth;
+      } else {
+        return calendarYYYYMM === viewMonth;
+      }
     });
+  }, [transactions, viewMonth]);
+
+  const historyTransactions = useMemo(() => {
+    return transactions.filter(t => {
+      const d = new Date(t.date);
+      const calendarYYYYMM = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      return calendarYYYYMM === viewMonth;
+    }).sort((a,b) => new Date(b.date) - new Date(a.date));
   }, [transactions, viewMonth]);
 
   const currentMonthProjectExpenses = useMemo(() => {
@@ -236,44 +250,35 @@ function SmartSaverApp({ profileName }) {
       }
     });
 
-    transactions.forEach(t => {
-      const d = new Date(t.date);
-      const calendarYYYYMM = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      const ccBillYYYYMM = getCycleMonth(t.date, true);
-
+    filteredTransactions.forEach(t => {
       if (t.type === 'expense') {
         const m = t.paymentMethod || 'โอน';
         if (m === 'บัตรเครดิต') {
-          if (ccBillYYYYMM === viewMonth) {
-            summary[m].total += t.amount;
-            if (t.projectId) {
-              summary[m].project += t.amount;
+          summary[m].total += t.amount;
+          if (t.projectId) {
+            summary[m].project += t.amount;
+          } else {
+            const d = new Date(t.date);
+            if (d.getDate() >= 20) {
+              summary[m].fromPrevMonth += t.amount;
             } else {
-              if (d.getDate() >= 20) {
-                summary[m].fromPrevMonth += t.amount;
-              } else {
-                summary[m].fromCurrentMonth += t.amount;
-              }
+              summary[m].fromCurrentMonth += t.amount;
             }
           }
-        } else {
-          if (calendarYYYYMM === viewMonth && !t.projectId) {
-            if (summary[m] !== undefined) {
-              summary[m] += t.amount;
-            }
+        } else if (!t.projectId) {
+          if (summary[m] !== undefined) {
+            summary[m] += t.amount;
           }
         }
       } else if (t.type === 'cc_payment') {
-        if (calendarYYYYMM === viewMonth) {
-          const m = t.paymentMethod || 'บัตรเครดิต';
-          if (m === 'บัตรเครดิต') {
-            summary[m].paid += t.amount;
-          }
+        const m = t.paymentMethod || 'บัตรเครดิต';
+        if (m === 'บัตรเครดิต') {
+          summary[m].paid += t.amount;
         }
       }
     });
     return summary;
-  }, [transactions, viewMonth]);
+  }, [filteredTransactions]);
 
   const pieData = useMemo(() => {
     return CATEGORIES.map(cat => ({
@@ -403,6 +408,25 @@ function SmartSaverApp({ profileName }) {
     setAccounts(prev => [...prev, { id: newId, name, balance: 0 }]);
     setEditingAccountId(newId);
     setTempAccountVal("0");
+  };
+
+  const editCategoryName = (oldCat) => {
+    const newName = prompt(`เปลี่ยนชื่อหมวดหมู่ (พิมพ์ชื่อใหม่):`, oldCat);
+    if (!newName || newName.trim() === '' || newName === oldCat) return;
+    
+    if (budgets[newName] !== undefined) {
+      alert('ชื่อหมวดหมู่นี้มีอยู่แล้ว!');
+      return;
+    }
+
+    setBudgets(prev => {
+      const newBudgets = { ...prev };
+      newBudgets[newName] = newBudgets[oldCat];
+      delete newBudgets[oldCat];
+      return newBudgets;
+    });
+
+    setTransactions(prev => prev.map(t => t.category === oldCat ? { ...t, category: newName } : t));
   };
 
   const updateAccountBalance = (id, newBalance) => {
@@ -793,10 +817,10 @@ function SmartSaverApp({ profileName }) {
               <Calendar size={20} /> ประวัติรอบบิลนี้ ({displayMonthStr})
             </h2>
             <div className="flex flex-col gap-3 max-h-[500px] overflow-y-auto pr-2 print:max-h-none print:overflow-visible">
-              {filteredTransactions.length === 0 ? (
+              {historyTransactions.length === 0 ? (
                 <p className="text-center text-muted py-4 print:text-black">ยังไม่มีรายการ</p>
               ) : (
-                filteredTransactions.map(tx => (
+                historyTransactions.map(tx => (
                   <div key={tx.id} className="glass-card hover:bg-opacity-80 transaction-item flex justify-between items-center print:border-gray-300 print:text-black print:mb-2" style={{ padding: '0.75rem 1rem' }}>
                     <div className="flex flex-col min-w-0 flex-1 pr-3">
                       <span className="font-medium text-main print:text-black truncate">{tx.memo}</span>
@@ -967,7 +991,12 @@ function SmartSaverApp({ profileName }) {
                 return (
                   <div key={cat} className="w-full">
                     <div className="flex justify-between items-end mb-1 print:text-black">
-                      <span className="font-medium text-sm">{cat}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm">{cat}</span>
+                        <button onClick={() => editCategoryName(cat)} className="text-gray-400 hover:text-blue-400 no-print p-0.5 rounded transition-colors" title="แก้ไขชื่อหมวด">
+                           <Edit2 size={12} />
+                        </button>
+                      </div>
                       <div className="text-right flex flex-col items-end">
                         <span className="text-sm">
                           <span className="font-bold text-main print:text-black" style={{ color: percent >= 100 ? 'var(--accent-red)' : ''}}>
