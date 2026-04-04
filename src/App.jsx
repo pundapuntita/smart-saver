@@ -133,13 +133,14 @@ function SmartSaverApp({ profileName }) {
 
   const getCycleMonth = (dateString, isCC) => {
     const d = new Date(dateString);
-    if (!isCC) return dateString.substring(0, 7);
+    const localYYYYMM = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    if (!isCC) return localYYYYMM;
     if (d.getDate() >= 20) {
       const nextM = new Date(d.getFullYear(), d.getMonth() + 1, 1);
       const mm = String(nextM.getMonth() + 1).padStart(2, '0');
       return `${nextM.getFullYear()}-${mm}`;
     }
-    return dateString.substring(0, 7);
+    return localYYYYMM;
   };
 
   const tzOffset = (new Date()).getTimezoneOffset() * 60000;
@@ -239,8 +240,8 @@ function SmartSaverApp({ profileName }) {
         const m = t.paymentMethod || 'โอน';
         if (m === 'บัตรเครดิต') {
           summary[m].total += t.amount;
-          const tYYYYMM = t.date.substring(0, 7);
-          if (tYYYYMM < viewMonth) {
+          const d = new Date(t.date);
+          if (d.getDate() >= 20) {
             summary[m].fromPrevMonth += t.amount;
           } else {
             summary[m].fromCurrentMonth += t.amount;
