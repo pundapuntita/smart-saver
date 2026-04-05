@@ -177,9 +177,13 @@ function SmartSaverApp({ profileName }) {
       if (historyFilter === 'credit_card') return (tx.type === 'expense' && tx.paymentMethod === 'บัตรเครดิต') || (tx.type === 'cc_payment' && tx.paymentMethod === 'บัตรเครดิต');
       if (historyFilter === 'shopee') return (tx.type === 'expense' && tx.paymentMethod === 'ช้อปปี้') || (tx.type === 'cc_payment' && tx.paymentMethod === 'ช้อปปี้');
       if (historyFilter === 'transfer') return tx.type === 'transfer';
-      if (historyFilter.startsWith('transfer_from_')) {
-        const accId = historyFilter.replace('transfer_from_', '');
-        return tx.type === 'transfer' && tx.sourceAccountId === accId;
+      if (historyFilter.startsWith('out_from_')) {
+        const accId = historyFilter.replace('out_from_', '');
+        return tx.sourceAccountId === accId && (
+          tx.type === 'transfer' ||
+          tx.type === 'cc_payment' ||
+          (tx.type === 'expense' && tx.paymentMethod !== 'บัตรเครดิต' && tx.paymentMethod !== 'ช้อปปี้')
+        );
       }
       if (historyFilter.startsWith('cat_')) {
         const catName = historyFilter.replace('cat_', '');
@@ -901,9 +905,9 @@ function SmartSaverApp({ profileName }) {
                    <option value="shopee">🧡 ช้อปปี้</option>
                    <option value="transfer">🔄 โอนย้ายบัญชี</option>
                  </optgroup>
-                 <optgroup label="แยกโอนตามบัญชี (ต้นทาง)">
+                 <optgroup label="แยกรายจ่าย/โอน (ตามบัญชีที่หักเงิน)">
                    {accounts.map(acc => (
-                     <option key={`transfer_from_${acc.id}`} value={`transfer_from_${acc.id}`}>โอนจาก: {acc.name}</option>
+                     <option key={`out_from_${acc.id}`} value={`out_from_${acc.id}`}>หักจากบัญชี: {acc.name}</option>
                    ))}
                  </optgroup>
                  <optgroup label="แยกรายจ่ายตามหมวด">
