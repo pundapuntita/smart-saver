@@ -80,6 +80,7 @@ function SmartSaverApp({ profileName }) {
     const tzOffset = (new Date()).getTimezoneOffset() * 60000;
     return (new Date(Date.now() - tzOffset)).toISOString().substring(0, 7);
   });
+  const [historyFilter, setHistoryFilter] = useState('all');
 
   useEffect(() => {
     let savedData = localStorage.getItem(`smartSaverData_${profileName}`);
@@ -168,6 +169,26 @@ function SmartSaverApp({ profileName }) {
     }).sort((a,b) => new Date(b.date) - new Date(a.date));
   }, [transactions, viewMonth]);
 
+  const displayHistoryTransactions = useMemo(() => {
+    if (historyFilter === 'all') return historyTransactions;
+    return historyTransactions.filter(tx => {
+      if (historyFilter === 'income') return tx.type === 'income';
+      if (historyFilter === 'expense_cash') return tx.type === 'expense' && tx.paymentMethod !== 'บัตรเครดิต' && tx.paymentMethod !== 'ช้อปปี้';
+      if (historyFilter === 'credit_card') return (tx.type === 'expense' && tx.paymentMethod === 'บัตรเครดิต') || (tx.type === 'cc_payment' && tx.paymentMethod === 'บัตรเครดิต');
+      if (historyFilter === 'shopee') return (tx.type === 'expense' && tx.paymentMethod === 'ช้อปปี้') || (tx.type === 'cc_payment' && tx.paymentMethod === 'ช้อปปี้');
+      if (historyFilter === 'transfer') return tx.type === 'transfer';
+      if (historyFilter.startsWith('transfer_from_')) {
+        const accId = historyFilter.replace('transfer_from_', '');
+        return tx.type === 'transfer' && tx.sourceAccountId === accId;
+      }
+      if (historyFilter.startsWith('cat_')) {
+        const catName = historyFilter.replace('cat_', '');
+        return tx.type === 'expense' && tx.category === catName;
+      }
+      return true;
+    });
+  }, [historyTransactions, historyFilter]);
+
   const currentMonthProjectExpenses = useMemo(() => {
     const map = {};
     projects.forEach(p => map[p.id] = 0);
@@ -187,12 +208,8 @@ function SmartSaverApp({ profileName }) {
       if (t.type === 'income' && t.targetAccountId && bals[t.targetAccountId] !== undefined) {
         bals[t.targetAccountId] += t.amount;
       } else if (t.type === 'transfer') {
-        if (t.sourceAccountId && bals[t.sourceAccountId] !== undefined) {
-          bals[t.sourceAccountId] -= t.amount;
-        }
-        if (t.targetAccountId && bals[t.targetAccountId] !== undefined) {
-          bals[t.targetAccountId] += t.amount;
-        }
+        if (t.sourceAccountId && bals[t.sourceAccountId] !== undefined) bals[t.sourceAccountId] -= t.amount;
+        if (t.targetAccountId && bals[t.targetAccountId] !== undefined) bals[t.targetAccountId] += t.amount;
       } else if (t.type === 'expense' && t.paymentMethod !== 'บัตรเครดิต' && t.paymentMethod !== 'ช้อปปี้' && t.sourceAccountId && bals[t.sourceAccountId] !== undefined) {
         bals[t.sourceAccountId] -= t.amount;
       } else if (t.type === 'cc_payment' && t.sourceAccountId && bals[t.sourceAccountId] !== undefined) {
@@ -202,11 +219,46 @@ function SmartSaverApp({ profileName }) {
     return bals;
   }, [accounts, transactions]);
 
+  const monthlyAccountBalances = useMemo(() => {
+    let startBals = {};
+    let endBals = {};
+    accounts.forEach(a => {
+      startBals[a.id] = parseFloat(a.balance) || 0;
+      endBals[a.id] = parseFloat(a.balance) || 0;
+    });
+
+    transactions.forEach(t => {
+      const d = new Date(t.date);
+      const calendarYYYYMM = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const isBefore = calendarYYYYMM < viewMonth;
+      const isBeforeOrDuring = calendarYYYYMM <= viewMonth;
+
+      const applyToBals = (bals, isApplicable) => {
+        if (!isApplicable) return;
+        if (t.type === 'income' && t.targetAccountId && bals[t.targetAccountId] !== undefined) {
+          bals[t.targetAccountId] += t.amount;
+        } else if (t.type === 'transfer') {
+          if (t.sourceAccountId && bals[t.sourceAccountId] !== undefined) bals[t.sourceAccountId] -= t.amount;
+          if (t.targetAccountId && bals[t.targetAccountId] !== undefined) bals[t.targetAccountId] += t.amount;
+        } else if (t.type === 'expense' && t.paymentMethod !== 'บัตรเครดิต' && t.paymentMethod !== 'ช้อปปี้' && t.sourceAccountId && bals[t.sourceAccountId] !== undefined) {
+          bals[t.sourceAccountId] -= t.amount;
+        } else if (t.type === 'cc_payment' && t.sourceAccountId && bals[t.sourceAccountId] !== undefined) {
+          bals[t.sourceAccountId] -= t.amount;
+        }
+      };
+
+      applyToBals(startBals, isBefore);
+      applyToBals(endBals, isBeforeOrDuring);
+    });
+
+    return { start: startBals, end: endBals };
+  }, [accounts, transactions, viewMonth]);
+
   const totalInitialBalance = useMemo(() => Object.values(displayBalances).reduce((sum, val) => sum + val, 0), [displayBalances]);
   // incomes that didn't go to any specific account
-  const totalIncomeAllTime = useMemo(() => transactions.filter(t => t.type === 'income' && !t.targetAccountId).reduce((sum, t) => sum + t.amount, 0), [transactions]);
+  const totalIncomeAllTime = useMemo(() => transactions.filter(t => t.type === 'income' && (!t.targetAccountId || !accounts.find(a => a.id === t.targetAccountId))).reduce((sum, t) => sum + t.amount, 0), [transactions, accounts]);
   // expenses that didn't deduct from any specific account (excluding Credit/Shopee which create debt instead)
-  const unallocatedCashExpense = useMemo(() => transactions.filter(t => t.type === 'expense' && t.paymentMethod !== 'บัตรเครดิต' && t.paymentMethod !== 'ช้อปปี้' && !t.sourceAccountId).reduce((sum, t) => sum + t.amount, 0), [transactions]);
+  const unallocatedCashExpense = useMemo(() => transactions.filter(t => t.type === 'expense' && t.paymentMethod !== 'บัตรเครดิต' && t.paymentMethod !== 'ช้อปปี้' && (!t.sourceAccountId || !accounts.find(a => a.id === t.sourceAccountId))).reduce((sum, t) => sum + t.amount, 0), [transactions, accounts]);
   
   // Credit Card Debt
   const ccExpenseAllTime = useMemo(() => transactions.filter(t => t.type === 'expense' && t.paymentMethod === 'บัตรเครดิต').reduce((sum, t) => sum + t.amount, 0), [transactions]);
@@ -215,11 +267,9 @@ function SmartSaverApp({ profileName }) {
   // Shopee Debt
   const shopeeExpenseAllTime = useMemo(() => transactions.filter(t => t.type === 'expense' && t.paymentMethod === 'ช้อปปี้').reduce((sum, t) => sum + t.amount, 0), [transactions]);
   const shopeePaymentAllTime = useMemo(() => transactions.filter(t => t.type === 'cc_payment' && t.paymentMethod === 'ช้อปปี้').reduce((sum, t) => sum + t.amount, 0), [transactions]);
-  
-  // all cc/shopee payments
-  const totalDebtPayment = useMemo(() => transactions.filter(t => t.type === 'cc_payment').reduce((sum, t) => sum + t.amount, 0), [transactions]);
+
   // payments that didn't deduct from any specific account
-  const unallocatedDebtPayment = useMemo(() => transactions.filter(t => t.type === 'cc_payment' && !t.sourceAccountId).reduce((sum, t) => sum + t.amount, 0), [transactions]);
+  const unallocatedDebtPayment = useMemo(() => transactions.filter(t => t.type === 'cc_payment' && (!t.sourceAccountId || !accounts.find(a => a.id === t.sourceAccountId))).reduce((sum, t) => sum + t.amount, 0), [transactions, accounts]);
 
   const currentBalance = useMemo(() => totalInitialBalance + totalIncomeAllTime - unallocatedCashExpense - unallocatedDebtPayment, [totalInitialBalance, totalIncomeAllTime, unallocatedCashExpense, unallocatedDebtPayment]);
   const currentCCDebt = useMemo(() => ccExpenseAllTime - ccPaymentAllTime, [ccExpenseAllTime, ccPaymentAllTime]);
@@ -243,7 +293,7 @@ function SmartSaverApp({ profileName }) {
   const paymentMethodSummary = useMemo(() => {
     const summary = {};
     PAYMENT_METHODS.forEach(m => {
-      if (m === 'บัตรเครดิต') {
+      if (m === 'บัตรเครดิต' || m === 'ช้อปปี้') {
         summary[m] = { total: 0, fromPrevMonth: 0, fromCurrentMonth: 0, paid: 0, project: 0 };
       } else {
         summary[m] = 0;
@@ -253,7 +303,7 @@ function SmartSaverApp({ profileName }) {
     filteredTransactions.forEach(t => {
       if (t.type === 'expense') {
         const m = t.paymentMethod || 'โอน';
-        if (m === 'บัตรเครดิต') {
+        if (m === 'บัตรเครดิต' || m === 'ช้อปปี้') {
           summary[m].total += t.amount;
           if (t.projectId) {
             summary[m].project += t.amount;
@@ -272,7 +322,7 @@ function SmartSaverApp({ profileName }) {
         }
       } else if (t.type === 'cc_payment') {
         const m = t.paymentMethod || 'บัตรเครดิต';
-        if (m === 'บัตรเครดิต') {
+        if (m === 'บัตรเครดิต' || m === 'ช้อปปี้') {
           summary[m].paid += t.amount;
         }
       }
@@ -455,7 +505,7 @@ function SmartSaverApp({ profileName }) {
     
     const paymentRows = [['ช่องทางชำระเงิน', 'รายจ่ายเดือนรอบบิล (บาท)']];
     PAYMENT_METHODS.forEach(m => {
-      if (m === 'บัตรเครดิต') {
+      if (m === 'บัตรเครดิต' || m === 'ช้อปปี้') {
         paymentRows.push([m + ' (รวมรูด)', paymentMethodSummary[m].total]);
         paymentRows.push(['  ↳ ยกมาจากเดือนก่อน (ปกติ)', paymentMethodSummary[m].fromPrevMonth]);
         paymentRows.push(['  ↳ ใช้จ่ายเดือนนี้ (ปกติ)', paymentMethodSummary[m].fromCurrentMonth]);
@@ -599,33 +649,54 @@ function SmartSaverApp({ profileName }) {
               + เพิ่ม
             </button>
           </div>
-          <div className="flex flex-col gap-3 w-full max-h-[160px] overflow-y-auto pr-2 mb-4">
+          <div className="flex flex-col gap-3 w-full max-h-[220px] overflow-y-auto pr-2 mb-4">
             {accounts.map(acc => (
-              <div key={acc.id} className="flex items-center justify-between text-sm bg-slate-800/40 p-2.5 rounded border border-slate-700/50 min-h-[44px]">
-                 <div className="font-medium flex-1 text-left cursor-pointer hover:text-blue-400 transition-colors flex items-center gap-1 min-w-0 group" onClick={() => editAccountName(acc.id, acc.name)}>
-                    <span className="truncate">{acc.name}</span><span className="text-[10px] text-muted opacity-0 group-hover:opacity-60 transition-opacity shrink-0 mt-0.5" title="แก้ไขชื่อ">✎</span>
+              <div key={acc.id} className="flex flex-col bg-slate-800/40 p-2.5 rounded border border-slate-700/50">
+                 <div className="flex items-center justify-between text-sm mb-2">
+                    <div className="font-medium flex-1 text-left cursor-pointer hover:text-blue-400 transition-colors flex items-center gap-1 min-w-0 group" onClick={() => editAccountName(acc.id, acc.name)}>
+                       <span className="truncate">{acc.name}</span><span className="text-[10px] text-muted opacity-0 group-hover:opacity-60 transition-opacity shrink-0 mt-0.5" title="แก้ไขชื่อ">✎</span>
+                    </div>
+                    <button onClick={() => deleteAccount(acc.id)} className="text-gray-500 hover:text-red-400 transition-colors bg-transparent border-none p-1 shadow-none rounded-full flex items-center justify-center h-6 w-6 ml-1" title="ลบบัญชี"> × </button>
                  </div>
-                 <div className="flex items-center justify-end gap-1.5 shrink-0 ml-3">
-                    <span className="text-muted font-medium">฿</span>
+                 
+                 <div className="flex items-center justify-between text-xs text-muted mb-2 bg-slate-900/40 px-2 py-1 rounded">
+                    <span>ยอดเงินตั้งต้น (ก่อนเริ่มใช้แอป):</span>
                     {editingAccountId === acc.id ? (
                       <div className="flex items-center gap-1.5">
-                        <input type="number" value={tempAccountVal} onChange={e => setTempAccountVal(e.target.value)} onKeyDown={(e) => { if(e.key === 'Enter') saveBalance(acc.id); }} className="w-[70px] sm:w-[90px] h-[28px] bg-slate-900 border border-blue-500 rounded px-2 text-right font-bold text-main" style={{ boxShadow: 'none' }} autoFocus />
-                        <button onClick={() => saveBalance(acc.id)} className="text-white bg-blue-600 hover:bg-blue-500 text-xs px-2 h-[28px] rounded transition-colors shadow-sm font-bold flex items-center justify-center">บันทึก</button>
+                        <input type="number" value={tempAccountVal} onChange={e => setTempAccountVal(e.target.value)} onKeyDown={(e) => { if(e.key === 'Enter') saveBalance(acc.id); }} className="w-[70px] h-[24px] bg-slate-900 border border-blue-500 rounded px-1.5 text-right font-bold text-main" style={{ boxShadow: 'none' }} autoFocus />
+                        <button onClick={() => saveBalance(acc.id)} className="text-white bg-blue-600 hover:bg-blue-500 text-[10px] px-1.5 h-[24px] rounded transition-colors shadow-sm font-bold flex items-center justify-center">บันทึก</button>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-1.5 group/bal cursor-pointer" onClick={() => handleEditBalance(acc)}>
-                        <span className="text-right font-bold text-main group-hover/bal:text-blue-400 transition-colors" style={{ minWidth: '35px' }}>{formatMoney(displayBalances[acc.id] || 0)}</span>
-                        <span className="text-[10px] text-muted opacity-0 group-hover/bal:opacity-60 transition-opacity flex items-center h-full mt-0.5" title="แก้ไขจำนวนเงินเริ่มต้น">✎</span>
+                      <div className="flex items-center gap-1 group/bal cursor-pointer" onClick={() => handleEditBalance(acc)}>
+                        <span className="font-bold group-hover/bal:text-blue-400 transition-colors">฿ {formatMoney(acc.balance || 0)}</span>
+                        <span className="text-[10px] text-muted opacity-0 group-hover/bal:opacity-60 transition-opacity">✎</span>
                       </div>
                     )}
-                    <button onClick={() => deleteAccount(acc.id)} className="text-gray-500 hover:text-red-400 transition-colors bg-transparent border-none p-1 shadow-none rounded-full flex items-center justify-center h-6 w-6 ml-1" title="ลบบัญชี"> × </button>
+                 </div>
+
+                 <div className="flex justify-between items-center text-xs px-1">
+                    <div className="flex flex-col">
+                       <span className="text-gray-400 mb-0.5">ต้นเดือน</span>
+                       <span className="font-semibold text-main">฿ {formatMoney(monthlyAccountBalances.start[acc.id] || 0)}</span>
+                    </div>
+                    <div className="text-gray-600">→</div>
+                    <div className="flex flex-col text-right">
+                       <span className="text-gray-400 mb-0.5">สิ้นเดือน (ยอดยกไป)</span>
+                       <span className="font-bold text-blue-400">฿ {formatMoney(monthlyAccountBalances.end[acc.id] || 0)}</span>
+                    </div>
                  </div>
               </div>
             ))}
           </div>
-          <div className="mt-auto pt-4 border-t border-gray-700 w-full flex justify-between items-center px-1">
-            <span className="text-sm text-gray-400 font-medium">รวมเงินต้นทั้งหมด:</span>
-            <span className="text-xl font-bold text-blue-400">฿ {formatMoney(totalInitialBalance)}</span>
+          <div className="mt-auto pt-3 border-t border-gray-700 w-full flex flex-col gap-1 px-1">
+            <div className="flex justify-between items-center">
+              <span className="text-xs text-gray-500 font-medium">รวมต้นเดือน:</span>
+              <span className="text-sm font-bold text-gray-300">฿ {formatMoney(Object.values(monthlyAccountBalances.start).reduce((a,b)=>a+b,0))}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-400 font-medium">รวมสิ้นเดือน (คงเหลือล่าสุด):</span>
+              <span className="text-xl font-bold text-blue-400">฿ {formatMoney(Object.values(monthlyAccountBalances.end).reduce((a,b)=>a+b,0))}</span>
+            </div>
           </div>
         </div>
         
@@ -813,14 +884,40 @@ function SmartSaverApp({ profileName }) {
           </div>
 
           <div className="glass-card print:border-gray-300">
-             <h2 className="text-xl font-bold mb-4 flex items-center gap-2 print:text-black">
-              <Calendar size={20} /> ประวัติรอบบิลนี้ ({displayMonthStr})
-            </h2>
+             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3 print:mb-2">
+               <h2 className="text-xl font-bold flex items-center gap-2 print:text-black">
+                <Calendar size={20} /> ประวัติรอบบิลนี้ ({displayMonthStr})
+               </h2>
+               <select 
+                 value={historyFilter} 
+                 onChange={e => setHistoryFilter(e.target.value)}
+                 className="bg-slate-800 text-sm border-gray-700 py-1.5 px-3 w-full sm:w-auto h-auto min-h-[36px] no-print rounded-lg"
+               >
+                 <optgroup label="ประเภทรายการ">
+                   <option value="all">รวมทุกรายการ</option>
+                   <option value="income">รายรับ (+)</option>
+                   <option value="expense_cash">จ่ายปกติ (เงินสด/โอน)</option>
+                   <option value="credit_card">💳 บัตรเครดิต</option>
+                   <option value="shopee">🧡 ช้อปปี้</option>
+                   <option value="transfer">🔄 โอนย้ายบัญชี</option>
+                 </optgroup>
+                 <optgroup label="แยกโอนตามบัญชี (ต้นทาง)">
+                   {accounts.map(acc => (
+                     <option key={`transfer_from_${acc.id}`} value={`transfer_from_${acc.id}`}>โอนจาก: {acc.name}</option>
+                   ))}
+                 </optgroup>
+                 <optgroup label="แยกรายจ่ายตามหมวด">
+                   {CATEGORIES.map(cat => (
+                     <option key={`cat_${cat}`} value={`cat_${cat}`}>หมวด: {cat}</option>
+                   ))}
+                 </optgroup>
+               </select>
+             </div>
             <div className="flex flex-col gap-3 max-h-[500px] overflow-y-auto pr-2 print:max-h-none print:overflow-visible">
-              {historyTransactions.length === 0 ? (
-                <p className="text-center text-muted py-4 print:text-black">ยังไม่มีรายการ</p>
+              {displayHistoryTransactions.length === 0 ? (
+                <p className="text-center text-muted py-4 print:text-black">ยังไม่มีรายการในหมวดที่เลือก</p>
               ) : (
-                historyTransactions.map(tx => (
+                displayHistoryTransactions.map(tx => (
                   <div key={tx.id} className="glass-card hover:bg-opacity-80 transaction-item flex justify-between items-center print:border-gray-300 print:text-black print:mb-2" style={{ padding: '0.75rem 1rem' }}>
                     <div className="flex flex-col min-w-0 flex-1 pr-3">
                       <span className="font-medium text-main print:text-black truncate">{tx.memo}</span>
@@ -917,12 +1014,12 @@ function SmartSaverApp({ profileName }) {
              <div>
                 <div className="grid grid-cols-2 gap-2 text-sm">
                    {PAYMENT_METHODS.map(m => {
-                      if (m === 'บัตรเครดิต') {
+                      if (m === 'บัตรเครดิต' || m === 'ช้อปปี้') {
                         const d = paymentMethodSummary[m];
                         return (
                           <div key={'m-'+m} className="col-span-2 flex flex-col gap-1 bg-slate-800/50 p-2.5 rounded print:border print:border-gray-300">
                              <div className="flex justify-between items-center mb-1 pb-1 border-b border-gray-700 print:border-gray-300">
-                                <span className="text-gray-300 print:text-black font-medium">{m} <span className="text-[10px] text-indigo-400 print:text-indigo-600 font-normal">(รวมรูด)</span></span>
+                                <span className="text-gray-300 print:text-black font-medium">{m} <span className="text-[10px] text-indigo-400 print:text-indigo-600 font-normal">(รวมยอด)</span></span>
                                 <span className="font-bold print:text-black">฿ {formatMoney(d.total)}</span>
                              </div>
                              <div className="flex justify-between items-center pl-2 text-xs opacity-80 print:text-black">
@@ -993,7 +1090,7 @@ function SmartSaverApp({ profileName }) {
                     <div className="flex justify-between items-end mb-1 print:text-black">
                       <div className="flex items-center gap-2">
                         <span className="font-medium text-sm">{cat}</span>
-                        <button onClick={() => editCategoryName(cat)} className="text-gray-400 hover:text-blue-400 no-print p-0.5 rounded transition-colors" title="แก้ไขชื่อหมวด">
+                        <button onClick={() => editCategoryName(cat)} className="text-gray-400 hover:text-blue-400 no-print p-0.5 rounded transition-colors" style={{ backgroundColor: 'transparent', boxShadow: 'none', padding: 0 }} title="แก้ไขชื่อหมวด">
                            <Edit2 size={12} />
                         </button>
                       </div>
@@ -1004,7 +1101,7 @@ function SmartSaverApp({ profileName }) {
                           </span> 
                           <span className="text-muted text-xs mx-1 print:text-black">/</span>
                           <span 
-                            className="text-muted text-sm cursor-pointer hover:text-white transition-colors bg-slate-800/50 px-1.5 py-0.5 rounded cursor-pointer print:bg-transparent print:text-black print:px-0"
+                            className="text-muted text-sm cursor-pointer hover:text-white transition-colors bg-transparent print:bg-transparent print:text-black print:px-0"
                             onClick={() => {
                               const newLimit = prompt(`ตั้งค่างบประมาณสำหรับ: ${cat}`, limit);
                               if (newLimit !== null && !isNaN(newLimit) && newLimit !== '') {
