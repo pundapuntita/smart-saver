@@ -104,23 +104,43 @@ function SmartSaverApp({ profileName }) {
       if (docSnap.metadata.hasPendingWrites) return;
       
       let parsed = null;
+      let shouldMigrateLocal = false;
+      let localDataSnapshot = null;
+
+      // Check local data first
+      let savedData = localStorage.getItem(`smartSaverData_${profileName}`);
+      if (!savedData && profileName === 'ปัณด้า') {
+        savedData = localStorage.getItem('smartSaverData');
+      }
+      if (savedData) {
+        try { localDataSnapshot = JSON.parse(savedData); } catch (e) {}
+      }
+
       if (docSnap.exists()) {
         const remoteDataStr = JSON.stringify(docSnap.data());
-        // If data is identical to what we have locally, ignore
-        if (remoteDataStr === localDataRef.current) {
-          setDataLoaded(true);
-          return;
+        const remoteData = docSnap.data();
+        
+        // CRITICAL SAFEGUARD: If remote has 0 transactions, but local has transactions, PREFER LOCAL!
+        // This prevents a new device from accidentally wiping the master device with an empty dataset.
+        const remoteTxCount = remoteData.transactions ? remoteData.transactions.length : 0;
+        const localTxCount = localDataSnapshot && localDataSnapshot.transactions ? localDataSnapshot.transactions.length : 0;
+
+        if (remoteTxCount === 0 && localTxCount > 0) {
+           console.warn("Safeguard triggered: Remote is empty but local has data. Prioritizing local data.");
+           shouldMigrateLocal = true;
+        } else {
+           if (remoteDataStr === localDataRef.current) {
+             setDataLoaded(true);
+             return;
+           }
+           parsed = remoteData;
         }
-        parsed = docSnap.data();
       } else {
-        // Migration from localStorage
-        let savedData = localStorage.getItem(`smartSaverData_${profileName}`);
-        if (!savedData && profileName === 'ปัณด้า') {
-          savedData = localStorage.getItem('smartSaverData');
-        }
-        if (savedData) {
-          try { parsed = JSON.parse(savedData); } catch (e) {}
-        }
+         shouldMigrateLocal = true;
+      }
+
+      if (shouldMigrateLocal && localDataSnapshot) {
+         parsed = localDataSnapshot;
       }
 
       if (parsed) {
