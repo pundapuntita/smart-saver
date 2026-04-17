@@ -1,4 +1,6 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import { doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { db } from './firebase';
 import { 
   ArrowUpCircle, 
   ArrowDownCircle, 
@@ -13,6 +15,8 @@ import {
   Briefcase,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
+  ChevronDown,
   Trash2,
   Edit2,
   Sparkles,
@@ -46,6 +50,8 @@ function SmartSaverApp({ profileName }) {
   const [editingId, setEditingId] = useState(null);
   const [editingAccountId, setEditingAccountId] = useState(null);
   const [tempAccountVal, setTempAccountVal] = useState("");
+  const [collapsedSections, setCollapsedSections] = useState({});
+  const toggleSection = (sec) => setCollapsedSections(prev => ({...prev, [sec]: !prev[sec]}));
   const [accounts, setAccounts] = useState([{ id: '1', name: 'บัญชีหลัก', balance: 0 }]);
   const [transactions, setTransactions] = useState([]);
   const [budgets, setBudgets] = useState(DEFAULT_BUDGETS);
@@ -82,32 +88,74 @@ function SmartSaverApp({ profileName }) {
   });
   const [historyFilter, setHistoryFilter] = useState('all');
 
-  useEffect(() => {
-    let savedData = localStorage.getItem(`smartSaverData_${profileName}`);
-    
-    // Migration: If loading Punda's profile and it's empty, try to fetch legacy 'smartSaverData'
-    if (!savedData && profileName === 'ปัณด้า') {
-      savedData = localStorage.getItem('smartSaverData');
-      if (savedData) localStorage.setItem(`smartSaverData_ปัณด้า`, savedData);
-    }
+  const [dataLoaded, setDataLoaded] = useState(false);
+  const localDataRef = useRef("");
 
-    if (savedData) {
-      try {
-        const parsed = JSON.parse(savedData);
+  useEffect(() => {
+    localDataRef.current = JSON.stringify({ accounts, transactions, budgets, incomeCategories, projects });
+  }, [accounts, transactions, budgets, incomeCategories, projects]);
+
+  useEffect(() => {
+    setDataLoaded(false); // Reset when profile changes
+    const docRef = doc(db, "smartSaverData", profileName);
+    
+    const unsubscribe = onSnapshot(docRef, (docSnap) => {
+      // Prevent local saves from triggering a read update which loops
+      if (docSnap.metadata.hasPendingWrites) return;
+      
+      let parsed = null;
+      if (docSnap.exists()) {
+        const remoteDataStr = JSON.stringify(docSnap.data());
+        // If data is identical to what we have locally, ignore
+        if (remoteDataStr === localDataRef.current) {
+          setDataLoaded(true);
+          return;
+        }
+        parsed = docSnap.data();
+      } else {
+        // Migration from localStorage
+        let savedData = localStorage.getItem(`smartSaverData_${profileName}`);
+        if (!savedData && profileName === 'ปัณด้า') {
+          savedData = localStorage.getItem('smartSaverData');
+        }
+        if (savedData) {
+          try { parsed = JSON.parse(savedData); } catch (e) {}
+        }
+      }
+
+      if (parsed) {
         if (parsed.accounts && Array.isArray(parsed.accounts)) setAccounts(parsed.accounts);
         setTransactions(parsed.transactions || []);
         if (parsed.budgets) setBudgets(Object.keys(parsed.budgets).length > 0 ? parsed.budgets : DEFAULT_BUDGETS);
         if (parsed.incomeCategories) setIncomeCategories(parsed.incomeCategories.length > 0 ? parsed.incomeCategories : DEFAULT_INCOME_CATEGORIES);
         if (parsed.projects) setProjects(parsed.projects);
-      } catch (e) {
-        console.error('Failed to load data', e);
       }
-    }
+      setDataLoaded(true);
+    }, (error) => {
+      console.error("Firebase sync error:", error);
+      // Fallback
+      setDataLoaded(true);
+    });
+
+    return () => unsubscribe();
   }, [profileName]);
 
   useEffect(() => {
-    localStorage.setItem(`smartSaverData_${profileName}`, JSON.stringify({ accounts, transactions, budgets, incomeCategories, projects }));
-  }, [accounts, transactions, budgets, incomeCategories, projects, profileName]);
+    if (!dataLoaded) return; // Don't wipe server with empty data on load
+    
+    const currentData = { accounts, transactions, budgets, incomeCategories, projects };
+    // Keep local backup working so it's resilient offline
+    localStorage.setItem(`smartSaverData_${profileName}`, JSON.stringify(currentData));
+
+    // Wait a bit before saving (debounce)
+    const timeout = setTimeout(() => {
+      setDoc(doc(db, "smartSaverData", profileName), currentData).catch(err => {
+         console.error("Failed to save to Firebase:", err);
+      });
+    }, 1500);
+
+    return () => clearTimeout(timeout);
+  }, [accounts, transactions, budgets, incomeCategories, projects, profileName, dataLoaded]);
 
   const CATEGORIES = useMemo(() => Object.keys(budgets).sort((a, b) => a.localeCompare(b, 'th')), [budgets]);
 
@@ -281,18 +329,19 @@ function SmartSaverApp({ profileName }) {
 
   const monthIncome = useMemo(() => filteredTransactions.filter(t => t.type === 'income' && !t.projectId).reduce((sum, t) => sum + t.amount, 0), [filteredTransactions]);
   const monthExpense = useMemo(() => filteredTransactions.filter(t => t.type === 'expense' && !t.projectId).reduce((sum, t) => sum + t.amount, 0), [filteredTransactions]);
+  const calendarMonthExpense = useMemo(() => historyTransactions.filter(t => t.type === 'expense' && !t.projectId).reduce((sum, t) => sum + t.amount, 0), [historyTransactions]);
 
   const categoryExpenses = useMemo(() => {
     const expenses = {};
     CATEGORIES.forEach(c => expenses[c] = 0);
-    filteredTransactions.forEach(t => {
+    historyTransactions.forEach(t => {
       if (t.type === 'expense' && !t.projectId) {
         const c = t.category;
         expenses[c !== undefined && expenses[c] !== undefined ? c : 'อื่นๆ'] += t.amount;
       }
     });
     return expenses;
-  }, [filteredTransactions, CATEGORIES]);
+  }, [historyTransactions, CATEGORIES]);
 
   const paymentMethodSummary = useMemo(() => {
     const summary = {};
@@ -360,16 +409,16 @@ function SmartSaverApp({ profileName }) {
       };
     }
     
-    if (highestExpense && monthExpense > 0) {
-       const percent = ((highestExpense.value / monthExpense) * 100).toFixed(0);
+    if (highestExpense && calendarMonthExpense > 0) {
+       const percent = ((highestExpense.value / calendarMonthExpense) * 100).toFixed(0);
        return {
-         message: `💡 หมวด "${highestExpense.name}" เป็นรายจ่ายที่สูงที่สุดของคุณ (คิดเป็น ${percent}%) ลองพิจารณาว่าสามารถลดรายจ่ายส่วนนี้ลงได้ไหม เช่น ลดความถี่ลง หรือตั้งงบแยกให้ชัดเจนขึ้น`,
+         message: `💡 หมวด "${highestExpense.name}" เป็นรายจ่ายที่สูงที่สุดของเดือนนี้ (คิดเป็น ${percent}%) ลองพิจารณาว่าสามารถลดรายจ่ายส่วนนี้ลงได้ไหม เช่น ลดความถี่ลง หรือตั้งงบแยกให้ชัดเจนขึ้น`,
          status: "info"
        };
     }
 
     return { message: "🌟 ยอดเยี่ยมมาก! คุณบริหารรายจ่ายได้ดีและยังอยู่ในงบประมาณทุกหมวด พยายามรักษาวินัยแบบนี้ต่อไปนะ", status: "success" };
-  }, [pieData, categoryExpenses, budgets, CATEGORIES, monthExpense]);
+  }, [pieData, categoryExpenses, budgets, CATEGORIES, calendarMonthExpense]);
 
   // View Navigation
   const changeMonth = (offset) => {
@@ -646,14 +695,21 @@ function SmartSaverApp({ profileName }) {
 
       <section className="dashboard-grid mb-8 no-print" style={{ alignItems: 'stretch' }}>
         <div className="glass-card flex flex-col items-center justify-start text-center">
-          <div className="flex items-center gap-2 mb-4 w-full justify-center">
-            <Wallet size={24} style={{ color: 'var(--accent-blue)' }} />
-            <h2 className="text-lg font-bold">บัญชีเงินต้น</h2>
-            <button onClick={addAccount} className="ml-2 text-xs bg-slate-700 hover:bg-slate-600 text-white rounded px-2 py-1 transition-colors">
-              + เพิ่ม
+          <div className="flex items-center justify-between w-full mb-4 group cursor-pointer" onClick={() => toggleSection('accounts')}>
+            <div className="flex items-center gap-2 flex-1 justify-center relative pl-8">
+              <Wallet size={24} style={{ color: 'var(--accent-blue)' }} />
+              <h2 className="text-lg font-bold">บัญชีเงินต้น</h2>
+              <button onClick={(e) => { e.stopPropagation(); addAccount(); }} className="ml-2 text-xs bg-slate-700 hover:bg-slate-600 text-white rounded px-2 py-1 transition-colors">
+                + เพิ่ม
+              </button>
+            </div>
+            <button className="text-gray-500 group-hover:text-gray-300 p-1 no-print">
+              {collapsedSections['accounts'] ? <ChevronDown size={20}/> : <ChevronUp size={20}/>}
             </button>
           </div>
-          <div className="flex flex-col gap-3 w-full max-h-[220px] overflow-y-auto pr-2 mb-4">
+          {!collapsedSections['accounts'] && (
+            <>
+              <div className="flex flex-col gap-3 w-full max-h-[220px] overflow-y-auto pr-2 mb-4">
             {accounts.map(acc => (
               <div key={acc.id} className="flex flex-col bg-slate-800/40 p-2.5 rounded border border-slate-700/50">
                  <div className="flex items-center justify-between text-sm mb-2">
@@ -691,7 +747,9 @@ function SmartSaverApp({ profileName }) {
                  </div>
               </div>
             ))}
-          </div>
+              </div>
+            </>
+          )}
           <div className="mt-auto pt-3 border-t border-gray-700 w-full flex flex-col gap-1 px-1">
             <div className="flex justify-between items-center">
               <span className="text-xs text-gray-500 font-medium">รวมต้นเดือน:</span>
@@ -733,27 +791,47 @@ function SmartSaverApp({ profileName }) {
 
       <section className="dashboard-grid-3 grid gap-6 mb-8" style={{ gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)' }}>
         <div className="glass-card">
-          <div className="flex items-center gap-2 mb-2">
-            <ArrowUpCircle className="text-green" size={24} />
-            <h3 className="font-medium text-muted">รายรับ (รอบบิลนี้)</h3>
+          <div className="flex items-center justify-between mb-2 group cursor-pointer" onClick={() => toggleSection('income_card')}>
+            <div className="flex items-center gap-2">
+              <ArrowUpCircle className="text-green" size={24} />
+              <h3 className="font-medium text-muted">รายรับ (รอบบิลนี้)</h3>
+            </div>
+            <button className="text-gray-500 group-hover:text-gray-300 p-1 no-print">
+              {collapsedSections['income_card'] ? <ChevronDown size={16}/> : <ChevronUp size={16}/>}
+            </button>
           </div>
-          <p className="text-2xl font-bold text-green">฿ {formatMoney(monthIncome)}</p>
+          {!collapsedSections['income_card'] && (
+            <p className="text-2xl font-bold text-green">฿ {formatMoney(monthIncome)}</p>
+          )}
         </div>
         <div className="glass-card">
-          <div className="flex items-center gap-2 mb-2">
-            <ArrowDownCircle className="text-red" size={24} />
-            <h3 className="font-medium text-muted">รายจ่ายปกติ (รอบบิลนี้)</h3>
+          <div className="flex items-center justify-between mb-2 group cursor-pointer" onClick={() => toggleSection('expense_card')}>
+            <div className="flex items-center gap-2">
+              <ArrowDownCircle className="text-red" size={24} />
+              <h3 className="font-medium text-muted">รายจ่ายปกติ (รอบบิลนี้)</h3>
+            </div>
+            <button className="text-gray-500 group-hover:text-gray-300 p-1 no-print">
+              {collapsedSections['expense_card'] ? <ChevronDown size={16}/> : <ChevronUp size={16}/>}
+            </button>
           </div>
-          <p className="text-2xl font-bold text-red">฿ {formatMoney(monthExpense)}</p>
+          {!collapsedSections['expense_card'] && (
+            <p className="text-2xl font-bold text-red">฿ {formatMoney(monthExpense)}</p>
+          )}
         </div>
       </section>
 
       <div className="dashboard-grid" style={{ alignItems: 'start' }}>
         <div className="flex flex-col gap-6 w-full print:hidden">
           <div className="glass-card no-print">
-            <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-              <Plus size={20} /> เพิ่มรายการใหม่
-            </h2>
+            <div className="flex justify-between items-center mb-4 group cursor-pointer" onClick={() => toggleSection('add_form')}>
+              <h2 className="text-xl font-bold flex items-center gap-2">
+                <Plus size={20} /> เพิ่มรายการใหม่
+              </h2>
+              <button className="text-gray-500 group-hover:text-gray-300 p-1 no-print">
+                {collapsedSections['add_form'] ? <ChevronDown size={20}/> : <ChevronUp size={20}/>}
+              </button>
+            </div>
+            {!collapsedSections['add_form'] && (
             <form onSubmit={handleAddTransaction} className="flex flex-col gap-4">
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 text-sm md:text-base">
                 <button type="button" className={`py-1 sm:py-2 rounded-lg font-medium transition ${type === 'income' ? 'bg-green-600 border border-green-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.4)]' : 'bg-transparent border border-gray-600 text-gray-400'}`} style={type === 'income' ? { backgroundColor: 'var(--accent-green)', borderColor: 'var(--accent-green)' } : {}} onClick={() => setType('income')}>รายรับ</button>
@@ -885,13 +963,20 @@ function SmartSaverApp({ profileName }) {
                 )}
               </div>
             </form>
+            )}
           </div>
 
           <div className="glass-card print:border-gray-300">
              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3 print:mb-2">
-               <h2 className="text-xl font-bold flex items-center gap-2 print:text-black">
-                <Calendar size={20} /> ประวัติรอบบิลนี้ ({displayMonthStr})
-               </h2>
+               <div className="flex items-center gap-2 group cursor-pointer" onClick={() => toggleSection('history')}>
+                 <h2 className="text-xl font-bold flex items-center gap-2 print:text-black">
+                  <Calendar size={20} /> ประวัติรอบบิลนี้ ({displayMonthStr})
+                 </h2>
+                 <button className="text-gray-500 group-hover:text-gray-300 p-1 no-print shrink-0">
+                   {collapsedSections['history'] ? <ChevronDown size={20}/> : <ChevronUp size={20}/>}
+                 </button>
+               </div>
+               {!collapsedSections['history'] && (
                <select 
                  value={historyFilter} 
                  onChange={e => setHistoryFilter(e.target.value)}
@@ -916,7 +1001,9 @@ function SmartSaverApp({ profileName }) {
                    ))}
                  </optgroup>
                </select>
+               )}
              </div>
+            {!collapsedSections['history'] && (
             <div className="flex flex-col gap-3 max-h-[500px] overflow-y-auto pr-2 print:max-h-none print:overflow-visible">
               {displayHistoryTransactions.length === 0 ? (
                 <p className="text-center text-muted py-4 print:text-black">ยังไม่มีรายการในหมวดที่เลือก</p>
@@ -971,19 +1058,27 @@ function SmartSaverApp({ profileName }) {
                 ))
               )}
             </div>
+            )}
           </div>
         </div>
 
         <div className="flex flex-col gap-6 w-full print:mb-8">
           <div className="glass-card">
-            <div className="flex justify-between items-center mb-6">
+            <div className="flex justify-between items-center mb-6 group cursor-pointer" onClick={() => toggleSection('projects')}>
               <h2 className="text-xl font-bold flex items-center gap-2 print:text-black">
                 <Briefcase size={20} /> โปรเจคพิเศษ (แยกงบจากปกติ)
               </h2>
-              <button onClick={addProject} className="btn-secondary flex items-center gap-1 text-xs no-print" style={{ padding: '0.4rem 0.6rem' }}>
-                <Plus size={14} /> สร้างโปรเจค
-              </button>
+              <div className="flex items-center gap-2">
+                <button onClick={(e) => { e.stopPropagation(); addProject(); }} className="btn-secondary flex items-center gap-1 text-xs no-print" style={{ padding: '0.4rem 0.6rem' }}>
+                  <Plus size={14} /> สร้างโปรเจค
+                </button>
+                <button className="text-gray-500 group-hover:text-gray-300 p-1 no-print">
+                  {collapsedSections['projects'] ? <ChevronDown size={20}/> : <ChevronUp size={20}/>}
+                </button>
+              </div>
             </div>
+            {!collapsedSections['projects'] && (
+            <>
             {projects.filter(p => currentMonthProjectExpenses[p.id] > 0).length === 0 ? (
                <p className="text-xs text-muted mb-4">ยังไม่มีรายจ่ายโปรเจคพิเศษในรอบบิลนี้<br/>คุณสามารถสร้างโปรเจคใหม่ หรือเลือกผูกรายจ่ายเข้าโปรเจคเดิมได้ในเมนู "ปุ่มเพิ่มรายการ"</p>
             ) : (
@@ -1006,15 +1101,21 @@ function SmartSaverApp({ profileName }) {
                   ))}
                 </div>
             )}
+            </>
+            )}
           </div>
 
           <div className="glass-card">
-             <div className="flex justify-between items-center mb-6">
+             <div className="flex justify-between items-center mb-6 group cursor-pointer" onClick={() => toggleSection('payment')}>
                 <h2 className="text-xl font-bold flex items-center gap-2 print:text-black">
                 <CreditCard size={20} /> สรุปแยกช่องทาง (รอบบิลนี้)
                 </h2>
+                <button className="text-gray-500 group-hover:text-gray-300 p-1 no-print">
+                  {collapsedSections['payment'] ? <ChevronDown size={20}/> : <ChevronUp size={20}/>}
+                </button>
              </div>
              
+             {!collapsedSections['payment'] && (
              <div>
                 <div className="grid grid-cols-2 gap-2 text-sm">
                    {PAYMENT_METHODS.map(m => {
@@ -1065,18 +1166,26 @@ function SmartSaverApp({ profileName }) {
                    })}
                 </div>
              </div>
+             )}
           </div>
 
           <div className="glass-card">
-            <div className="flex justify-between items-center mb-4">
+            <div className="flex justify-between items-center mb-4 group cursor-pointer" onClick={() => toggleSection('budget')}>
               <h2 className="text-xl font-bold flex items-center gap-2 print:text-black">
-                <PieChartIcon size={20} /> เป้าหมายรายจ่าย
+                <PieChartIcon size={20} /> เป้าหมายรายจ่าย (เฉพาะเดือนนี้)
               </h2>
-              <button onClick={addCategory} className="btn-secondary flex items-center gap-1 text-xs no-print" style={{ padding: '0.4rem 0.6rem' }}>
-                <Plus size={14} /> เพิ่มหมวด
-              </button>
+              <div className="flex items-center gap-2">
+                <button onClick={(e) => { e.stopPropagation(); addCategory(); }} className="btn-secondary flex items-center gap-1 text-xs no-print" style={{ padding: '0.4rem 0.6rem' }}>
+                  <Plus size={14} /> เพิ่มหมวด
+                </button>
+                <button className="text-gray-500 group-hover:text-gray-300 p-1 no-print">
+                  {collapsedSections['budget'] ? <ChevronDown size={20}/> : <ChevronUp size={20}/>}
+                </button>
+              </div>
             </div>
             
+            {!collapsedSections['budget'] && (
+            <>
             <p className="text-xs text-muted mb-6 opacity-75 no-print">💡 แตะที่ตัวเลขยอดเงิน / งบ เพื่อแก้ไขเป้าหมาย</p>
 
             <div className="flex flex-col gap-5">
@@ -1084,8 +1193,9 @@ function SmartSaverApp({ profileName }) {
                 const spent = categoryExpenses[cat] || 0;
                 const limit = budgets[cat];
                 const percent = Math.min((spent / limit) * 100, 100);
+                const catPercent = calendarMonthExpense > 0 ? ((spent / calendarMonthExpense) * 100).toFixed(1) : '0';
                 
-                let statusColor = 'var(--accent-green)'; // default green
+                let statusColor = 'var(--accent-green)';
                 if (percent > 85) statusColor = 'var(--accent-red)';
                 else if (percent > 65) statusColor = 'var(--accent-orange)';
 
@@ -1094,6 +1204,9 @@ function SmartSaverApp({ profileName }) {
                     <div className="flex justify-between items-end mb-1 print:text-black">
                       <div className="flex items-center gap-2">
                         <span className="font-medium text-sm">{cat}</span>
+                        {parseFloat(catPercent) > 0 && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold" style={{ backgroundColor: 'rgba(59,130,246,0.15)', color: 'var(--accent-blue)', border: '1px solid rgba(59,130,246,0.3)' }}>{catPercent}%</span>
+                        )}
                         <button onClick={() => editCategoryName(cat)} className="text-gray-400 hover:text-blue-400 no-print p-0.5 rounded transition-colors" style={{ backgroundColor: 'transparent', boxShadow: 'none', padding: 0 }} title="แก้ไขชื่อหมวด">
                            <Edit2 size={12} />
                         </button>
@@ -1128,15 +1241,25 @@ function SmartSaverApp({ profileName }) {
                 );
               })}
             </div>
+            </>
+            )}
           </div>
 
           <div className="glass-card">
-            <h2 className="text-xl font-bold mb-4 flex items-center gap-2 print:text-black">
-              <PieChartIcon size={20} /> สัดส่วนรายจ่าย (รอบบิลนี้)
-            </h2>
+            <div className="flex justify-between items-center mb-4 group cursor-pointer" onClick={() => toggleSection('piechart')}>
+              <h2 className="text-xl font-bold flex items-center gap-2 print:text-black">
+                <PieChartIcon size={20} /> สัดส่วนรายจ่าย (เฉพาะเดือนนี้)
+              </h2>
+              <button className="text-gray-500 group-hover:text-gray-300 p-1 no-print">
+                {collapsedSections['piechart'] ? <ChevronDown size={20}/> : <ChevronUp size={20}/>}
+              </button>
+            </div>
+            {!collapsedSections['piechart'] && (
+            <>
             {pieData.length === 0 ? (
               <p className="text-center text-muted py-4">ยังไม่มีข้อมูล</p>
             ) : (
+              <>
               <div className="w-full h-[250px] no-print" style={{ color: '#fff' }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
@@ -1166,19 +1289,47 @@ function SmartSaverApp({ profileName }) {
                   </PieChart>
                 </ResponsiveContainer>
               </div>
+              <div className="mt-4 flex flex-col gap-2 no-print">
+                {[...pieData].sort((a,b) => b.value - a.value).map((entry, index) => {
+                  const pct = calendarMonthExpense > 0 ? ((entry.value / calendarMonthExpense) * 100).toFixed(1) : '0';
+                  const colorIdx = pieData.findIndex(d => d.name === entry.name);
+                  return (
+                    <div key={entry.name} className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: PIE_COLORS[colorIdx % PIE_COLORS.length] }} />
+                        <span className="text-gray-300">{entry.name}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-muted text-xs">฿ {formatMoney(entry.value)}</span>
+                        <span className="font-bold text-sm min-w-[40px] text-right" style={{ color: PIE_COLORS[colorIdx % PIE_COLORS.length] }}>{pct}%</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              </>
+            )}
+            </>
             )}
           </div>
           
           <div className="glass-card bg-indigo-900/20 border-indigo-500/30">
-            <h2 className="text-xl font-bold mb-3 flex items-center gap-2 text-indigo-400 print:text-indigo-700">
-              <Bot size={22} /> AI แนะนำการเงิน
-            </h2>
+            <div className="flex justify-between items-center mb-3 group cursor-pointer" onClick={() => toggleSection('ai')}>
+              <h2 className="text-xl font-bold flex items-center gap-2 text-indigo-400 print:text-indigo-700">
+                <Bot size={22} /> AI แนะนำการเงิน
+              </h2>
+              <button className="text-gray-500 group-hover:text-gray-300 p-1 no-print">
+                {collapsedSections['ai'] ? <ChevronDown size={20}/> : <ChevronUp size={20}/>}
+              </button>
+            </div>
+            {!collapsedSections['ai'] && (
             <div className="flex gap-3 items-start bg-slate-800/60 p-4 rounded-xl print:border print:border-gray-300 print:bg-transparent print:text-black">
               <Sparkles size={24} className={`shrink-0 ${aiRec.status === 'warning' ? 'text-red-400' : aiRec.status === 'success' ? 'text-green-400' : 'text-blue-400'}`} />
               <p className="text-sm leading-relaxed whitespace-pre-line print:text-black text-gray-200">
                  {aiRec.message}
               </p>
             </div>
+            )}
           </div>
 
         </div>
