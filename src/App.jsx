@@ -89,14 +89,12 @@ function SmartSaverApp({ profileName }) {
   const [historyFilter, setHistoryFilter] = useState('all');
 
   const [dataLoaded, setDataLoaded] = useState(false);
-  const localDataRef = useRef("");
-
-  useEffect(() => {
-    localDataRef.current = JSON.stringify({ accounts, transactions, budgets, incomeCategories, projects });
-  }, [accounts, transactions, budgets, incomeCategories, projects]);
+  const preventSyncRef = useRef(false);
+  const blockSyncRef = useRef(false);
 
   useEffect(() => {
     setDataLoaded(false); // Reset when profile changes
+    blockSyncRef.current = false;
     const docRef = doc(db, "smartSaverData", profileName);
     
     const unsubscribe = onSnapshot(docRef, (docSnap) => {
@@ -117,7 +115,6 @@ function SmartSaverApp({ profileName }) {
       }
 
       if (docSnap.exists()) {
-        const remoteDataStr = JSON.stringify(docSnap.data());
         const remoteData = docSnap.data();
         
         // CRITICAL SAFEGUARD: If remote has 0 transactions, but local has transactions, PREFER LOCAL!
@@ -129,10 +126,6 @@ function SmartSaverApp({ profileName }) {
            console.warn("Safeguard triggered: Remote is empty but local has data. Prioritizing local data.");
            shouldMigrateLocal = true;
         } else {
-           if (remoteDataStr === localDataRef.current) {
-             setDataLoaded(true);
-             return;
-           }
            parsed = remoteData;
         }
       } else {
@@ -141,9 +134,12 @@ function SmartSaverApp({ profileName }) {
 
       if (shouldMigrateLocal && localDataSnapshot) {
          parsed = localDataSnapshot;
+         // Explicitly save to Firebase since preventSyncRef blocks the useEffect sync
+         setDoc(docRef, parsed).catch(err => console.error("Migration save failed:", err));
       }
 
       if (parsed) {
+        preventSyncRef.current = true; // IMPORTANT: Prevent the immediate useEffect from writing back this exact data
         if (parsed.accounts && Array.isArray(parsed.accounts)) setAccounts(parsed.accounts);
         setTransactions(parsed.transactions || []);
         if (parsed.budgets) setBudgets(Object.keys(parsed.budgets).length > 0 ? parsed.budgets : DEFAULT_BUDGETS);
@@ -153,7 +149,8 @@ function SmartSaverApp({ profileName }) {
       setDataLoaded(true);
     }, (error) => {
       console.error("Firebase sync error:", error);
-      // Fallback
+      // Prevent writing empty data to Firebase if read fails
+      blockSyncRef.current = true; 
       setDataLoaded(true);
     });
 
@@ -161,20 +158,23 @@ function SmartSaverApp({ profileName }) {
   }, [profileName]);
 
   useEffect(() => {
-    if (!dataLoaded) return; // Don't wipe server with empty data on load
+    if (!dataLoaded || blockSyncRef.current) return; 
     
+    if (preventSyncRef.current) {
+       // This re-render was triggered by incoming Firebase data. We shouldn't echo it back.
+       preventSyncRef.current = false;
+       return;
+    }
+
     const currentData = { accounts, transactions, budgets, incomeCategories, projects };
     // Keep local backup working so it's resilient offline
     localStorage.setItem(`smartSaverData_${profileName}`, JSON.stringify(currentData));
 
-    // Wait a bit before saving (debounce)
-    const timeout = setTimeout(() => {
-      setDoc(doc(db, "smartSaverData", profileName), currentData).catch(err => {
-         console.error("Failed to save to Firebase:", err);
-      });
-    }, 1500);
-
-    return () => clearTimeout(timeout);
+    // Save to Firebase without debounce to prevent race conditions 
+    // where incoming snaps overwrite un-debounced local user edits
+    setDoc(doc(db, "smartSaverData", profileName), currentData).catch(err => {
+       console.error("Failed to save to Firebase:", err);
+    });
   }, [accounts, transactions, budgets, incomeCategories, projects, profileName, dataLoaded]);
 
   const CATEGORIES = useMemo(() => Object.keys(budgets).sort((a, b) => a.localeCompare(b, 'th')), [budgets]);
