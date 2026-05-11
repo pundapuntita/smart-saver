@@ -58,6 +58,9 @@ function SmartSaverApp({ profileName }) {
   const [incomeCategories, setIncomeCategories] = useState(DEFAULT_INCOME_CATEGORIES);
   const [projects, setProjects] = useState([]);
   
+  const [syncStatus, setSyncStatus] = useState('loading'); // 'loading', 'synced', 'error', 'offline'
+  const [syncError, setSyncError] = useState(null);
+  
   const [type, setType] = useState('expense');
   const [amount, setAmount] = useState('');
   const [memo, setMemo] = useState('');
@@ -146,9 +149,13 @@ function SmartSaverApp({ profileName }) {
         if (parsed.incomeCategories) setIncomeCategories(parsed.incomeCategories.length > 0 ? parsed.incomeCategories : DEFAULT_INCOME_CATEGORIES);
         if (parsed.projects) setProjects(parsed.projects);
       }
+      setSyncStatus('synced');
+      setSyncError(null);
       setDataLoaded(true);
     }, (error) => {
       console.error("Firebase sync error:", error);
+      setSyncStatus('error');
+      setSyncError(error.message);
       // Prevent writing empty data to Firebase if read fails
       blockSyncRef.current = true; 
       setDataLoaded(true);
@@ -699,6 +706,33 @@ function SmartSaverApp({ profileName }) {
           </button>
         </div>
       </header>
+
+      {/* Sync Status Indicator */}
+      <div className="flex justify-center mb-4 no-print">
+        {syncStatus === 'loading' && (
+          <div className="flex items-center gap-2 text-xs text-blue-400 bg-blue-500/10 px-3 py-1 rounded-full border border-blue-500/20">
+            <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+            กำลังเชื่อมต่อ Cloud...
+          </div>
+        )}
+        {syncStatus === 'synced' && (
+          <div className="flex items-center gap-2 text-xs text-green-400 bg-green-500/10 px-3 py-1 rounded-full border border-green-500/20">
+            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+            เชื่อมต่อ Cloud แล้ว (ข้อมูลล่าสุด)
+          </div>
+        )}
+        {syncStatus === 'error' && (
+          <div className="flex flex-col items-center gap-1">
+            <div className="flex items-center gap-2 text-xs text-red-400 bg-red-500/10 px-3 py-1 rounded-full border border-red-500/20">
+              <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+              เชื่อมต่อ Cloud ไม่สำเร็จ
+            </div>
+            <p className="text-[10px] text-red-500/70">
+              {syncError?.includes('permission-denied') ? '⚠️ กฎความปลอดภัย (Rules) ใน Firebase อาจหมดอายุ' : syncError}
+            </p>
+          </div>
+        )}
+      </div>
 
       {/* Print Only Header */}
       <div className="hidden print:block text-center mb-6 text-black">
@@ -1361,9 +1395,9 @@ function SmartSaverApp({ profileName }) {
           <span>🔒</span> สำรองข้อมูลให้ปลอดภัย (Backup & Restore)
         </h2>
         <p className="text-sm text-muted mb-6">
-          แอปนี้เก็บข้อมูลไว้ในเบราว์เซอร์ของเครื่องคุณแบบ <b>ถาวร (10 ปีก็ยังอยู่ถ้าไม่ล้างประวัติเว็บ)</b> 
-          <br/>คุณสามารถกดย้อนกลับไปดูเดือนที่แล้วได้เรื่อยๆ โดยใช้ลูกศร <b>&lt; ถอยหลัง</b> ด้านบน
-          <br/>แต่หากต้องการย้ายเครื่องมือถือ/คอม หรือกลัวข้อมูลหาย สามารถดาวน์โหลดไฟล์สำรองเก็บไว้ได้ครับ
+          แอปนี้เก็บข้อมูลไว้ใน <b>Cloud (Firebase)</b> และสำรองในเบราว์เซอร์เครื่องคุณโดยอัตโนมัติ
+          <br/>ข้อมูลจะซิงค์ข้ามเครื่องได้ทันทีหากใช้ Profile ชื่อเดียวกัน
+          <br/>หากต้องการย้ายเครื่องมือถือ/คอม หรือกลัวข้อมูลหาย สามารถดาวน์โหลดไฟล์สำรองเก็บไว้ได้ครับ
         </p>
         <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
           <button onClick={exportBackup} className="btn-secondary text-sm bg-slate-800/80 hover:bg-slate-700">
