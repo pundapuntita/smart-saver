@@ -1,6 +1,8 @@
 html {
   -webkit-tap-highlight-color: transparent;
   -webkit-text-size-adjust: 100%;
+  overflow-x: hidden;
+  width: 100%;
 }
 
 :root {
@@ -34,6 +36,8 @@ html {
 
 body {
   min-height: 100vh;
+  width: 100%;
+  overflow-x: hidden;
   background: 
     radial-gradient(circle at 15% 50%, rgba(59, 130, 246, 0.15) 0%, transparent 50%),
     radial-gradient(circle at 85% 30%, rgba(139, 92, 246, 0.15) 0%, transparent 50%),
@@ -308,6 +312,26 @@ button {
 ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
 
 /* Component classes with responsive styling for Mobile (iPhone) & Desktop */
+.balance-overview-card {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1.5rem;
+  width: 100%;
+}
+.balance-overview-left {
+  flex: 1;
+  width: 100%;
+  border-right: 1px solid #374151;
+  padding-right: 1.5rem;
+}
+.balance-overview-right {
+  flex: 1;
+  width: 100%;
+  padding-left: 0.5rem;
+}
+
 .accounts-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -413,6 +437,21 @@ button {
   }
   form input, form select {
     font-size: 16px; /* Prevents iOS auto-zoom on focus */
+  }
+
+  .balance-overview-card {
+    flex-direction: column;
+    gap: 0.75rem;
+    align-items: stretch;
+  }
+  .balance-overview-left {
+    border-right: none;
+    border-bottom: 1px solid #374151;
+    padding-right: 0;
+    padding-bottom: 0.75rem;
+  }
+  .balance-overview-right {
+    padding-left: 0;
   }
 
   .accounts-grid {

@@ -1,12 +1,12 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { db } from './firebase';
-import { 
-  ArrowUpCircle, 
-  ArrowDownCircle, 
-  Wallet, 
-  TrendingUp, 
-  Plus, 
+import {
+  ArrowUpCircle,
+  ArrowDownCircle,
+  Wallet,
+  TrendingUp,
+  Plus,
   Calendar,
   CreditCard,
   PieChart as PieChartIcon,
@@ -73,8 +73,8 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
   const [editingAccountId, setEditingAccountId] = useState(null);
   const [tempAccountVal, setTempAccountVal] = useState("");
   const [collapsedSections, setCollapsedSections] = useState({});
-  const toggleSection = (sec) => setCollapsedSections(prev => ({...prev, [sec]: !prev[sec]}));
-  
+  const toggleSection = (sec) => setCollapsedSections(prev => ({ ...prev, [sec]: !prev[sec] }));
+
   // Eagerly load local storage data for instant display and fallback
   const initData = useMemo(() => {
     let savedData = localStorage.getItem(`smartSaverData_${profileName}`);
@@ -92,17 +92,17 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
   const [budgets, setBudgets] = useState(initData?.budgets && Object.keys(initData.budgets).length > 0 ? initData.budgets : DEFAULT_BUDGETS);
   const [incomeCategories, setIncomeCategories] = useState(initData?.incomeCategories && initData.incomeCategories.length > 0 ? initData.incomeCategories : DEFAULT_INCOME_CATEGORIES);
   const [projects, setProjects] = useState(initData?.projects || []);
-  
+
   const [syncStatus, setSyncStatus] = useState('loading'); // 'loading', 'synced', 'error', 'offline'
   const [syncError, setSyncError] = useState(null);
-  
+
   const [type, setType] = useState('expense');
   const [amount, setAmount] = useState('');
   const [memo, setMemo] = useState('');
   const [category, setCategory] = useState('อื่นๆ');
   const [expenseType, setExpenseType] = useState('normal'); // 'normal' | 'other'
   const [incomeType, setIncomeType] = useState('normal'); // 'normal' | 'refund'
-  
+
   const [dateStr, setDateStr] = useState(() => {
     const tzOffset = (new Date()).getTimezoneOffset() * 60000;
     return (new Date(Date.now() - tzOffset)).toISOString().split('T')[0];
@@ -136,11 +136,11 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
     setDataLoaded(false); // Reset when profile changes
     blockSyncRef.current = false;
     const docRef = doc(db, "smartSaverData", profileName);
-    
+
     const unsubscribe = onSnapshot(docRef, (docSnap) => {
       // Prevent local saves from triggering a read update which loops
       if (docSnap.metadata.hasPendingWrites) return;
-      
+
       let parsed = null;
       let shouldMigrateLocal = false;
       let localDataSnapshot = null;
@@ -151,12 +151,12 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
         savedData = localStorage.getItem('smartSaverData');
       }
       if (savedData) {
-        try { localDataSnapshot = JSON.parse(savedData); } catch (e) {}
+        try { localDataSnapshot = JSON.parse(savedData); } catch (e) { }
       }
 
       if (docSnap.exists()) {
         const remoteData = docSnap.data();
-        
+
         // CRITICAL SAFEGUARD: If remote has 0 transactions, but local has transactions, PREFER LOCAL!
         // This prevents a new device from accidentally wiping the master device with an empty dataset.
         const remoteTxCount = remoteData.transactions ? remoteData.transactions.length : 0;
@@ -166,22 +166,22 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
         const localTime = localDataSnapshot && localDataSnapshot.lastUpdated ? localDataSnapshot.lastUpdated : 0;
 
         if (remoteTxCount === 0 && localTxCount > 0) {
-           console.warn("Safeguard triggered: Remote is empty but local has data. Prioritizing local data.");
-           shouldMigrateLocal = true;
+          console.warn("Safeguard triggered: Remote is empty but local has data. Prioritizing local data.");
+          shouldMigrateLocal = true;
         } else if (localTime > remoteTime) {
-           console.warn("Safeguard triggered: Local data is newer than remote. Prioritizing local data.");
-           shouldMigrateLocal = true;
+          console.warn("Safeguard triggered: Local data is newer than remote. Prioritizing local data.");
+          shouldMigrateLocal = true;
         } else {
-           parsed = remoteData;
+          parsed = remoteData;
         }
       } else {
-         shouldMigrateLocal = true;
+        shouldMigrateLocal = true;
       }
 
       if (shouldMigrateLocal && localDataSnapshot) {
-         parsed = localDataSnapshot;
-         // Explicitly save to Firebase since preventSyncRef blocks the useEffect sync
-         setDoc(docRef, parsed).catch(err => console.error("Migration save failed:", err));
+        parsed = localDataSnapshot;
+        // Explicitly save to Firebase since preventSyncRef blocks the useEffect sync
+        setDoc(docRef, parsed).catch(err => console.error("Migration save failed:", err));
       }
 
       if (parsed) {
@@ -199,7 +199,7 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
       console.error("Firebase sync error:", error);
       setSyncStatus('error');
       setSyncError(error.message);
-      
+
       // Fallback: If Firebase fails (e.g. permission denied), ensure we use local data
       let savedData = localStorage.getItem(`smartSaverData_${profileName}`);
       if (!savedData && profileName === 'ปัณด้า') {
@@ -213,11 +213,11 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
           if (parsed.budgets) setBudgets(Object.keys(parsed.budgets).length > 0 ? parsed.budgets : DEFAULT_BUDGETS);
           if (parsed.incomeCategories) setIncomeCategories(parsed.incomeCategories.length > 0 ? parsed.incomeCategories : DEFAULT_INCOME_CATEGORIES);
           if (parsed.projects) setProjects(parsed.projects);
-        } catch (e) {}
+        } catch (e) { }
       }
 
       // Prevent writing empty data to Firebase if read fails
-      blockSyncRef.current = true; 
+      blockSyncRef.current = true;
       setDataLoaded(true);
     });
 
@@ -225,12 +225,12 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
   }, [profileName]);
 
   useEffect(() => {
-    if (!dataLoaded || blockSyncRef.current) return; 
-    
+    if (!dataLoaded || blockSyncRef.current) return;
+
     if (preventSyncRef.current) {
-       // This re-render was triggered by incoming Firebase data. We shouldn't echo it back.
-       preventSyncRef.current = false;
-       return;
+      // This re-render was triggered by incoming Firebase data. We shouldn't echo it back.
+      preventSyncRef.current = false;
+      return;
     }
 
     const currentData = { accounts, transactions, budgets, incomeCategories, projects, lastUpdated: Date.now() };
@@ -240,7 +240,7 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
     // Save to Firebase without debounce to prevent race conditions 
     // where incoming snaps overwrite un-debounced local user edits
     setDoc(doc(db, "smartSaverData", profileName), currentData).catch(err => {
-       console.error("Failed to save to Firebase:", err);
+      console.error("Failed to save to Firebase:", err);
     });
   }, [accounts, transactions, budgets, incomeCategories, projects, profileName, dataLoaded]);
 
@@ -290,7 +290,7 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
       const d = new Date(t.date);
       const calendarYYYYMM = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       const ccBillYYYYMM = getCycleMonth(t.date, true);
-      
+
       if (t.type === 'expense' && t.paymentMethod === 'บัตรเครดิต') {
         return ccBillYYYYMM === viewMonth;
       } else {
@@ -304,7 +304,7 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
       const d = new Date(t.date);
       const calendarYYYYMM = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       return calendarYYYYMM === viewMonth;
-    }).sort((a,b) => new Date(b.date) - new Date(a.date));
+    }).sort((a, b) => new Date(b.date) - new Date(a.date));
   }, [transactions, viewMonth]);
 
   const displayHistoryTransactions = useMemo(() => {
@@ -421,11 +421,11 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
   const totalIncomeAllTime = useMemo(() => transactions.filter(t => t.type === 'income' && (!t.targetAccountId || !accounts.find(a => a.id === t.targetAccountId))).reduce((sum, t) => sum + t.amount, 0), [transactions, accounts]);
   // expenses that didn't deduct from any specific account (excluding Credit/Shopee which create debt instead)
   const unallocatedCashExpense = useMemo(() => transactions.filter(t => t.type === 'expense' && t.paymentMethod !== 'บัตรเครดิต' && t.paymentMethod !== 'ช้อปปี้' && (!t.sourceAccountId || !accounts.find(a => a.id === t.sourceAccountId))).reduce((sum, t) => sum + t.amount, 0), [transactions, accounts]);
-  
+
   // Credit Card Debt
   const ccExpenseAllTime = useMemo(() => transactions.filter(t => t.type === 'expense' && t.paymentMethod === 'บัตรเครดิต').reduce((sum, t) => sum + t.amount, 0), [transactions]);
   const ccPaymentAllTime = useMemo(() => transactions.filter(t => t.type === 'cc_payment' && t.paymentMethod !== 'ช้อปปี้').reduce((sum, t) => sum + t.amount, 0), [transactions]);
-  
+
   // Shopee Debt
   const shopeeExpenseAllTime = useMemo(() => transactions.filter(t => t.type === 'expense' && t.paymentMethod === 'ช้อปปี้').reduce((sum, t) => sum + t.amount, 0), [transactions]);
   const shopeePaymentAllTime = useMemo(() => transactions.filter(t => t.type === 'cc_payment' && t.paymentMethod === 'ช้อปปี้').reduce((sum, t) => sum + t.amount, 0), [transactions]);
@@ -562,27 +562,27 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
 
   const aiRec = useMemo(() => {
     if (pieData.length === 0) return { message: "ยังไม่มีข้อมูลรายจ่ายในรอบบิลนี้ ลองเริ่มบันทึกรายจ่ายกันดูนะ 🐼", status: "neutral" };
-    
+
     let overBudgets = CATEGORIES.filter(cat => {
       const budget = parseFloat(budgets[cat]);
       const spent = categoryExpenses[cat] || 0;
       return !isNaN(budget) && spent > budget;
     });
     let highestExpense = [...pieData].sort((a, b) => b.value - a.value)[0];
-    
+
     if (overBudgets.length > 0) {
-      return { 
+      return {
         message: `🚨 ตอนนี้คุณใช้จ่ายเกินงบในหมวด "${overBudgets.join(', ')}" แนะนำให้ลดการใช้จ่ายในส่วนนี้ หรือหาโปรโมชั่นเพื่อเซฟเงินช่วงปลายเดือนนะ`,
-        status: "warning" 
+        status: "warning"
       };
     }
-    
+
     if (highestExpense && calendarMonthExpense > 0) {
-       const percent = ((highestExpense.value / calendarMonthExpense) * 100).toFixed(0);
-       return {
-         message: `💡 หมวด "${highestExpense.name}" เป็นรายจ่ายที่สูงที่สุดของเดือนนี้ (คิดเป็น ${percent}%) ลองพิจารณาว่าสามารถลดรายจ่ายส่วนนี้ลงได้ไหม เช่น ลดความถี่ลง หรือตั้งงบแยกให้ชัดเจนขึ้น`,
-         status: "info"
-       };
+      const percent = ((highestExpense.value / calendarMonthExpense) * 100).toFixed(0);
+      return {
+        message: `💡 หมวด "${highestExpense.name}" เป็นรายจ่ายที่สูงที่สุดของเดือนนี้ (คิดเป็น ${percent}%) ลองพิจารณาว่าสามารถลดรายจ่ายส่วนนี้ลงได้ไหม เช่น ลดความถี่ลง หรือตั้งงบแยกให้ชัดเจนขึ้น`,
+        status: "info"
+      };
     }
 
     return { message: "🌟 ยอดเยี่ยมมาก! คุณบริหารรายจ่ายได้ดีและยังอยู่ในงบประมาณทุกหมวด พยายามรักษาวินัยแบบนี้ต่อไปนะ", status: "success" };
@@ -630,7 +630,7 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
       expenseType: type === 'expense' ? (expenseType || 'normal') : null,
       incomeType: isIncome ? (incomeType || 'normal') : null
     };
-    
+
     if (editingId) {
       setTransactions(prev => prev.map(t => t.id === editingId ? newTx : t));
       setEditingId(null);
@@ -641,7 +641,7 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
   };
 
   const deleteTransaction = (id) => {
-    if(confirm('ต้องการลบรายการนี้ใช่หรือไม่?')) setTransactions(prev => prev.filter(t => t.id !== id));
+    if (confirm('ต้องการลบรายการนี้ใช่หรือไม่?')) setTransactions(prev => prev.filter(t => t.id !== id));
   };
 
   const addCategory = () => {
@@ -655,7 +655,7 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
   const addProject = () => {
     const name = prompt('กรุณาใส่ชื่อโปรเจคใหม่ (เช่น รีโนเวทห้อง):');
     if (!name) return;
-    setProjects(prev => [...prev, { id: 'p_'+Date.now(), name }]);
+    setProjects(prev => [...prev, { id: 'p_' + Date.now(), name }]);
   };
 
   const editProject = (id, currentName) => {
@@ -679,7 +679,7 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
   const addAccount = () => {
     const name = prompt('กรุณาใส่ชื่อบัญชีใหม่:', 'บัญชีใหม่');
     if (!name) return;
-    const newId = 'acc_'+Date.now();
+    const newId = 'acc_' + Date.now();
     setAccounts(prev => [...prev, { id: newId, name, balance: 0 }]);
     setEditingAccountId(newId);
     setTempAccountVal("0");
@@ -688,7 +688,7 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
   const editCategoryName = (oldCat) => {
     const newName = prompt(`เปลี่ยนชื่อหมวดหมู่ (พิมพ์ชื่อใหม่):`, oldCat);
     if (!newName || newName.trim() === '' || newName === oldCat) return;
-    
+
     if (budgets[newName] !== undefined) {
       alert('ชื่อหมวดหมู่นี้มีอยู่แล้ว!');
       return;
@@ -727,7 +727,7 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
   const exportExcel = () => {
     const categoryRows = [['หมวดหมู่', 'รายจ่ายที่ใช้ไป (บาท)', 'งบประมาณ (บาท)']];
     CATEGORIES.forEach(cat => categoryRows.push([cat, categoryExpenses[cat] || 0, budgets[cat]]));
-    
+
     const paymentRows = [['ช่องทางชำระเงิน', 'รายจ่ายเดือนรอบบิล (บาท)']];
     PAYMENT_METHODS.forEach(m => {
       if (m === 'บัตรเครดิต' || m === 'ช้อปปี้') {
@@ -768,7 +768,7 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
       ['สรุปโปรเจคพิเศษ (รอบบิลนี้)'],
       ...projectRows
     ];
-    
+
     let csvContent = '\uFEFF' + rows.map(e => e.join(',')).join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -817,16 +817,15 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
   const formatMoney = (val) => val.toLocaleString('th-TH', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
   const displayDate = (isoString) => {
     const localDate = new Date(new Date(isoString).getTime() - tzOffset);
-    return localDate.toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute:'2-digit' }).replace(' 00:00', '');
+    return localDate.toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(' 00:00', '');
   };
 
   const PaymentChips = () => (
     <div className="flex flex-wrap gap-2 mt-1">
       {PAYMENT_METHODS.map(method => (
         <button key={method} type="button" onClick={() => setPaymentMethod(method)}
-          className={`flex-1 min-w-[50px] py-1 px-1 rounded-lg text-sm transition-all border ${
-            paymentMethod === method ? 'bg-blue-600/20 border-blue-500 text-blue-400 font-medium' : 'bg-transparent border-gray-600 text-gray-400 hover:border-gray-400'
-          }`}
+          className={`flex-1 min-w-[50px] py-1 px-1 rounded-lg text-sm transition-all border ${paymentMethod === method ? 'bg-blue-600/20 border-blue-500 text-blue-400 font-medium' : 'bg-transparent border-gray-600 text-gray-400 hover:border-gray-400'
+            }`}
           style={paymentMethod === method ? { borderColor: 'var(--accent-blue)', color: 'var(--accent-blue)', backgroundColor: 'rgba(59, 130, 246, 0.1)' } : {}}
         >
           {method}
@@ -837,7 +836,7 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
 
   const monthNames = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
   const [vY, vM] = viewMonth.split('-');
-  const displayMonthStr = `${monthNames[parseInt(vM)-1]} ${vY}`;
+  const displayMonthStr = `${monthNames[parseInt(vM) - 1]} ${vY}`;
 
   return (
     <div className="app-container" style={{ paddingBottom: '3rem' }}>
@@ -890,9 +889,9 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
       </div>
 
       <div className="flex justify-center items-center gap-4 mb-6 no-print w-full">
-        <button onClick={() => changeMonth(-1)} className="btn-secondary rounded-full p-2"><ChevronLeft size={20}/></button>
+        <button onClick={() => changeMonth(-1)} className="btn-secondary rounded-full p-2"><ChevronLeft size={20} /></button>
         <h2 className="text-xl font-bold px-4 py-1 bg-slate-800/80 rounded border border-gray-700">รอบบิล {displayMonthStr}</h2>
-        <button onClick={() => changeMonth(1)} className="btn-secondary rounded-full p-2"><ChevronRight size={20}/></button>
+        <button onClick={() => changeMonth(1)} className="btn-secondary rounded-full p-2"><ChevronRight size={20} /></button>
       </div>
       <p className="text-center text-xs text-muted mb-6 no-print">* บัตรเครดิต ตัดรอบบิลวันที่ 19 ของทุกเดือน (ยอดวันที่ 20 จะถูกยกยอดไปรอบบิลเดือนถัดไปอัตโนมัติ)</p>
 
@@ -912,62 +911,66 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
             </button>
           </div>
         </div>
-          {!collapsedSections['accounts'] && (
-            <div className="accounts-grid">
-              {accounts.map(acc => (
-                <div key={acc.id} className="glass-card account-card-item">
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '4px' }}>
-                    <span onClick={() => editAccountName(acc.id, acc.name)} title="แตะเพื่อแก้ไขชื่อ"
-                      className="account-name-label">
-                      {acc.name}
-                    </span>
-                    <button onClick={() => deleteAccount(acc.id)}
-                      style={{ background: 'transparent', border: 'none', boxShadow: 'none', padding: 0, color: '#6b7280', fontSize: '12px', lineHeight: 1, cursor: 'pointer', flexShrink: 0 }}>×</button>
-                  </div>
-                  {editingAccountId === acc.id ? (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <input type="number" value={tempAccountVal}
-                        onChange={e => setTempAccountVal(e.target.value)}
-                        onKeyDown={e => { if(e.key === 'Enter') saveBalance(acc.id); }}
-                        style={{ width: '100%', minWidth: 0, height: '22px', fontSize: '12px', padding: '0 4px', boxShadow: 'none' }} autoFocus />
-                      <button onClick={() => saveBalance(acc.id)}
-                        style={{ fontSize: '11px', padding: '0 6px', height: '22px', flexShrink: 0 }}>✓</button>
-                    </div>
-                  ) : (
-                    <div onClick={() => handleEditBalance(acc)} title="แตะเพื่อแก้ไขยอดตั้งต้น"
-                      className="account-balance-val">
-                      ฿{formatMoney(monthlyAccountBalances.end[acc.id] || 0)}
-                    </div>
-                  )}
+        {!collapsedSections['accounts'] && (
+          <div className="accounts-grid">
+            {accounts.map(acc => (
+              <div key={acc.id} className="glass-card account-card-item">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '4px' }}>
+                  <span onClick={() => editAccountName(acc.id, acc.name)} title="แตะเพื่อแก้ไขชื่อ"
+                    className="account-name-label">
+                    {acc.name}
+                  </span>
+                  <button onClick={() => deleteAccount(acc.id)}
+                    style={{ background: 'transparent', border: 'none', boxShadow: 'none', padding: 0, color: '#6b7280', fontSize: '12px', lineHeight: 1, cursor: 'pointer', flexShrink: 0 }}>×</button>
                 </div>
-              ))}
-            </div>
-          )}
+                {editingAccountId === acc.id ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <input type="number" value={tempAccountVal}
+                      onChange={e => setTempAccountVal(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') saveBalance(acc.id); }}
+                      style={{ width: '100%', minWidth: 0, height: '22px', fontSize: '12px', padding: '0 4px', boxShadow: 'none' }} autoFocus />
+                    <button onClick={() => saveBalance(acc.id)}
+                      style={{ fontSize: '11px', padding: '0 6px', height: '22px', flexShrink: 0 }}>✓</button>
+                  </div>
+                ) : (
+                  <div onClick={() => handleEditBalance(acc)} title="แตะเพื่อแก้ไขยอดตั้งต้น"
+                    className="account-balance-val">
+                    ฿{formatMoney(monthlyAccountBalances.end[acc.id] || 0)}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
-      <section className="dashboard-grid mb-8 no-print" style={{ alignItems: 'stretch' }}>
-        <div className="glass-card flex flex-col justify-center gap-4">
-          <div className="flex justify-between items-center border-b border-gray-700 pb-3 mt-1">
-            <div className="text-left">
-              <h2 className="text-sm font-bold text-gray-300">เงินคงเหลือ (ในบัญชี)</h2>
-              <div className="text-xs text-muted pr-2 hidden sm:block">รวมเงินต้น + รับ - จ่าย (ไม่รวมรูดบัตร) - จ่ายบิลบัตร</div>
-            </div>
-            <div className={`text-2xl font-black whitespace-nowrap ${currentBalance < 0 ? 'text-red-500' : 'text-green-500'}`}>
-              ฿ {formatMoney(currentBalance)}
+      <section className="mb-6 no-print w-full">
+        <div className="glass-card balance-overview-card">
+          <div className="balance-overview-left">
+            <div className="flex justify-between items-center">
+              <div className="text-left">
+                <h2 className="text-sm font-bold text-gray-300">เงินคงเหลือ (ในบัญชี)</h2>
+                <div className="text-xs text-muted pr-2 hidden sm:block">รวมเงินต้น + รับ - จ่าย (ไม่รวมรูดบัตร) - จ่ายบิลบัตร</div>
+              </div>
+              <div className={`text-2xl font-black whitespace-nowrap ${currentBalance < 0 ? 'text-red-500' : 'text-green-500'}`}>
+                ฿ {formatMoney(currentBalance)}
+              </div>
             </div>
           </div>
-          <div className="flex justify-between items-center pt-1 mb-1">
-            <div className="text-left">
-              <h2 className="text-sm font-bold text-indigo-400">หนี้บัตร/ช้อปปี้ (รอจ่าย)</h2>
-              <div className="text-xs text-muted">ยอดรูดสะสม - ยอดจ่ายบิลสะสม</div>
-            </div>
-            <div className="text-right">
-               <div className={`text-base font-black whitespace-nowrap ${currentCCDebt > 0 ? 'text-orange-400' : 'text-green-500'}`}>
-                 💳 ฿ {formatMoney(Math.max(0, currentCCDebt))}
-               </div>
-               <div className={`text-base font-black whitespace-nowrap ${currentShopeeDebt > 0 ? 'text-orange-400' : 'text-green-500'}`}>
-                 🧡 ฿ {formatMoney(Math.max(0, currentShopeeDebt))}
-               </div>
+          <div className="balance-overview-right">
+            <div className="flex justify-between items-center">
+              <div className="text-left">
+                <h2 className="text-sm font-bold text-indigo-400">หนี้บัตร/ช้อปปี้ (รอจ่าย)</h2>
+                <div className="text-xs text-muted">ยอดรูดสะสม - ยอดจ่ายบิลสะสม</div>
+              </div>
+              <div className="text-right flex items-center justify-end gap-3 sm:gap-4">
+                <div className={`text-base font-black whitespace-nowrap ${currentCCDebt > 0 ? 'text-orange-400' : 'text-green-500'}`}>
+                  💳 ฿ {formatMoney(Math.max(0, currentCCDebt))}
+                </div>
+                <div className={`text-base font-black whitespace-nowrap ${currentShopeeDebt > 0 ? 'text-orange-400' : 'text-green-500'}`}>
+                  🧡 ฿ {formatMoney(Math.max(0, currentShopeeDebt))}
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -983,7 +986,7 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
               </h3>
             </div>
             <button className="text-gray-500 group-hover:text-gray-300 p-0.5 no-print shrink-0">
-              {collapsedSections['income_card'] ? <ChevronDown size={14}/> : <ChevronUp size={14}/>}
+              {collapsedSections['income_card'] ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
             </button>
           </div>
           {!collapsedSections['income_card'] && (
@@ -1005,7 +1008,7 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
               </h3>
             </div>
             <button className="text-gray-500 group-hover:text-gray-300 p-0.5 no-print shrink-0">
-              {collapsedSections['refund_income_card'] ? <ChevronDown size={14}/> : <ChevronUp size={14}/>}
+              {collapsedSections['refund_income_card'] ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
             </button>
           </div>
           {!collapsedSections['refund_income_card'] && (
@@ -1027,7 +1030,7 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
               </h3>
             </div>
             <button className="text-gray-500 group-hover:text-gray-300 p-0.5 no-print shrink-0">
-              {collapsedSections['expense_card'] ? <ChevronDown size={14}/> : <ChevronUp size={14}/>}
+              {collapsedSections['expense_card'] ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
             </button>
           </div>
           {!collapsedSections['expense_card'] && (
@@ -1065,7 +1068,7 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
               </h3>
             </div>
             <button className="text-gray-500 group-hover:text-gray-300 p-0.5 no-print shrink-0">
-              {collapsedSections['other_expense_card'] ? <ChevronDown size={14}/> : <ChevronUp size={14}/>}
+              {collapsedSections['other_expense_card'] ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
             </button>
           </div>
           {!collapsedSections['other_expense_card'] && (
@@ -1092,469 +1095,465 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
       </section>
 
       <div className="dashboard-grid" style={{ alignItems: 'start' }}>
-        <div className="flex flex-col gap-6 w-full print:hidden">
+        <div className="flex flex-col gap-6 w-full min-w-0 print:hidden">
           <div className="glass-card no-print">
             <div className="flex justify-between items-center mb-4 group cursor-pointer" onClick={() => toggleSection('add_form')}>
               <h2 className="text-xl font-bold flex items-center gap-2">
                 <Plus size={20} /> เพิ่มรายการใหม่
               </h2>
               <button className="text-gray-500 group-hover:text-gray-300 p-1 no-print">
-                {collapsedSections['add_form'] ? <ChevronDown size={20}/> : <ChevronUp size={20}/>}
+                {collapsedSections['add_form'] ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
               </button>
             </div>
             {!collapsedSections['add_form'] && (
-            <form onSubmit={handleAddTransaction} className="flex flex-col gap-4">
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 text-sm md:text-base">
-                <button type="button" className={`py-1 sm:py-2 rounded-lg font-medium transition ${type === 'income' ? 'bg-green-600 border border-green-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.4)]' : 'bg-transparent border border-gray-600 text-gray-400'}`} style={type === 'income' ? { backgroundColor: 'var(--accent-green)', borderColor: 'var(--accent-green)' } : {}} onClick={() => setType('income')}>รายรับ</button>
-                <button type="button" className={`py-1 sm:py-2 rounded-lg font-medium transition ${type === 'expense' ? 'bg-red-600 border border-red-500 text-white shadow-[0_0_15px_rgba(239,68,68,0.4)]' : 'bg-transparent border border-gray-600 text-gray-400'}`} style={type === 'expense' ? { backgroundColor: 'var(--accent-red)', borderColor: 'var(--accent-red)' } : {}} onClick={() => setType('expense')}>รายจ่าย</button>
-                <button type="button" className={`py-1 sm:py-2 rounded-lg font-medium transition ${type === 'cc_payment' ? 'bg-indigo-600 border border-indigo-500 text-white shadow-[0_0_15px_rgba(79,70,229,0.4)]' : 'bg-transparent border border-gray-600 text-gray-400'}`} onClick={() => { setType('cc_payment'); if (paymentMethod !== 'บัตรเครดิต' && paymentMethod !== 'ช้อปปี้') setPaymentMethod('บัตรเครดิต'); }}>จ่ายบิล</button>
-                <button type="button" className={`py-1 sm:py-2 rounded-lg font-medium transition ${type === 'transfer' ? 'bg-teal-600 border border-teal-500 text-white shadow-[0_0_15px_rgba(20,184,166,0.4)]' : 'bg-transparent border border-gray-600 text-gray-400'}`} style={type === 'transfer' ? { backgroundColor: '#0d9488', borderColor: '#0d9488' } : {}} onClick={() => setType('transfer')}>โอนย้าย/เก็บ</button>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label>วันที่</label>
-                  <input type="date" required value={dateStr} onChange={e => setDateStr(e.target.value)} />
+              <form onSubmit={handleAddTransaction} className="flex flex-col gap-4">
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 text-sm md:text-base">
+                  <button type="button" className={`py-1 sm:py-2 rounded-lg font-medium transition ${type === 'income' ? 'bg-green-600 border border-green-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.4)]' : 'bg-transparent border border-gray-600 text-gray-400'}`} style={type === 'income' ? { backgroundColor: 'var(--accent-green)', borderColor: 'var(--accent-green)' } : {}} onClick={() => setType('income')}>รายรับ</button>
+                  <button type="button" className={`py-1 sm:py-2 rounded-lg font-medium transition ${type === 'expense' ? 'bg-red-600 border border-red-500 text-white shadow-[0_0_15px_rgba(239,68,68,0.4)]' : 'bg-transparent border border-gray-600 text-gray-400'}`} style={type === 'expense' ? { backgroundColor: 'var(--accent-red)', borderColor: 'var(--accent-red)' } : {}} onClick={() => setType('expense')}>รายจ่าย</button>
+                  <button type="button" className={`py-1 sm:py-2 rounded-lg font-medium transition ${type === 'cc_payment' ? 'bg-indigo-600 border border-indigo-500 text-white shadow-[0_0_15px_rgba(79,70,229,0.4)]' : 'bg-transparent border border-gray-600 text-gray-400'}`} onClick={() => { setType('cc_payment'); if (paymentMethod !== 'บัตรเครดิต' && paymentMethod !== 'ช้อปปี้') setPaymentMethod('บัตรเครดิต'); }}>จ่ายบิล</button>
+                  <button type="button" className={`py-1 sm:py-2 rounded-lg font-medium transition ${type === 'transfer' ? 'bg-teal-600 border border-teal-500 text-white shadow-[0_0_15px_rgba(20,184,166,0.4)]' : 'bg-transparent border border-gray-600 text-gray-400'}`} style={type === 'transfer' ? { backgroundColor: '#0d9488', borderColor: '#0d9488' } : {}} onClick={() => setType('transfer')}>โอนย้าย/เก็บ</button>
                 </div>
-                <div>
-                  <label>จำนวนเงิน (บาท)</label>
-                  <input type="number" required min="0.01" step="0.01" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} />
-                </div>
-              </div>
 
-              <div>
-                <label>รายละเอียด</label>
-                <input type="text" placeholder={type === 'expense' ? 'เช่น เติมน้ำมัน...' : type === 'cc_payment' ? 'เช่น จ่ายบิลบัตรเครดิตรอบเดือน...' : type === 'transfer' ? 'เช่น โอนเงินเข้าออมทรัพย์...' : (incomeType === 'refund' ? 'เช่น เพื่อนโอนค่าข้าวคืน...' : 'เช่น เงินเดือน...')} value={memo} onChange={e => setMemo(e.target.value)} />
-              </div>
-
-              {type !== 'cc_payment' && type !== 'transfer' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {type === 'income' && (
-                    <div className="md:col-span-2">
-                      <label className="text-sm font-medium text-gray-300 mb-1.5 flex items-center justify-between">
-                        <span>ประเภทรายรับ</span>
-                        <span className="text-[11px] text-muted">
-                          {incomeType === 'normal' ? '✓ เงินเดือน / รายได้รอบบิลนี้' : '✓ คนอื่นโอนคืน / เงินคืน'}
-                        </span>
-                      </label>
-                      <div className="grid grid-cols-2 gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setIncomeType('normal')}
-                          className={`py-2 px-3 rounded-xl text-xs sm:text-sm font-medium transition-all border flex items-center justify-center gap-2 ${
-                            incomeType === 'normal'
-                              ? 'bg-green-500/20 border-green-500 text-green-400 font-bold shadow-[0_0_12px_rgba(16,185,129,0.3)]'
-                              : 'bg-slate-800/60 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-gray-200'
-                          }`}
-                        >
-                          <span className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${incomeType === 'normal' ? 'border-green-400' : 'border-gray-500'}`}>
-                            {incomeType === 'normal' && <span className="w-2 h-2 rounded-full bg-green-400"></span>}
-                          </span>
-                          <span>รายรับปกติ (default)</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setIncomeType('refund')}
-                          className={`py-2 px-3 rounded-xl text-xs sm:text-sm font-medium transition-all border flex items-center justify-center gap-2 ${
-                            incomeType === 'refund'
-                              ? 'bg-teal-500/20 border-teal-500 text-teal-400 font-bold shadow-[0_0_12px_rgba(20,184,166,0.3)]'
-                              : 'bg-slate-800/60 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-gray-200'
-                          }`}
-                        >
-                          <span className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${incomeType === 'refund' ? 'border-teal-400' : 'border-gray-500'}`}>
-                            {incomeType === 'refund' && <span className="w-2 h-2 rounded-full bg-teal-400"></span>}
-                          </span>
-                          <span>เงินโอนคืน</span>
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="flex items-center justify-between">
-                       {type === 'income' ? 'หมวดหมู่รายรับ' : 'หมวดหมู่ (ปกติ)'}
-                    </label>
-                    <select value={category} onChange={e => {
-                      const val = e.target.value;
-                      setCategory(val);
-                      if (type === 'expense' && val === 'ค่าใช้จ่ายของคนอื่น') {
-                        setExpenseType('other');
-                      }
-                    }} disabled={type === 'expense' && !!selectedProjectId}>
-                      {type === 'income' 
-                        ? incomeCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)
-                        : CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)
-                      }
-                    </select>
+                    <label>วันที่</label>
+                    <input type="date" required value={dateStr} onChange={e => setDateStr(e.target.value)} />
                   </div>
-                  {type === 'income' && (
-                    <div>
-                      <label>เข้าบัญชี (ถ้ามี)</label>
-                      <select value={selectedIncomeAccountId} onChange={e => setSelectedIncomeAccountId(e.target.value)}>
-                        {accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
-                      </select>
-                    </div>
-                  )}
-                  {type === 'expense' && (
-                    <>
+                  <div>
+                    <label>จำนวนเงิน (บาท)</label>
+                    <input type="number" required min="0.01" step="0.01" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} />
+                  </div>
+                </div>
+
+                <div>
+                  <label>รายละเอียด</label>
+                  <input type="text" placeholder={type === 'expense' ? 'เช่น เติมน้ำมัน...' : type === 'cc_payment' ? 'เช่น จ่ายบิลบัตรเครดิตรอบเดือน...' : type === 'transfer' ? 'เช่น โอนเงินเข้าออมทรัพย์...' : (incomeType === 'refund' ? 'เช่น เพื่อนโอนค่าข้าวคืน...' : 'เช่น เงินเดือน...')} value={memo} onChange={e => setMemo(e.target.value)} />
+                </div>
+
+                {type !== 'cc_payment' && type !== 'transfer' && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {type === 'income' && (
                       <div className="md:col-span-2">
                         <label className="text-sm font-medium text-gray-300 mb-1.5 flex items-center justify-between">
-                          <span>ประเภทรายจ่าย</span>
+                          <span>ประเภทรายรับ</span>
                           <span className="text-[11px] text-muted">
-                            {expenseType === 'normal' ? '✓ จ่ายจากเงินเดือนรอบบิลนี้' : '✓ ไม่ได้เอาเงินเดือนจ่าย'}
+                            {incomeType === 'normal' ? '✓ เงินเดือน / รายได้รอบบิลนี้' : '✓ คนอื่นโอนคืน / เงินคืน'}
                           </span>
                         </label>
                         <div className="grid grid-cols-2 gap-2">
                           <button
                             type="button"
-                            onClick={() => setExpenseType('normal')}
-                            className={`py-2 px-3 rounded-xl text-xs sm:text-sm font-medium transition-all border flex items-center justify-center gap-2 ${
-                              expenseType === 'normal'
-                                ? 'bg-red-500/20 border-red-500 text-red-400 font-bold shadow-[0_0_12px_rgba(239,68,68,0.3)]'
+                            onClick={() => setIncomeType('normal')}
+                            className={`py-2 px-3 rounded-xl text-xs sm:text-sm font-medium transition-all border flex items-center justify-center gap-2 ${incomeType === 'normal'
+                                ? 'bg-green-500/20 border-green-500 text-green-400 font-bold shadow-[0_0_12px_rgba(16,185,129,0.3)]'
                                 : 'bg-slate-800/60 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-gray-200'
-                            }`}
+                              }`}
                           >
-                            <span className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${expenseType === 'normal' ? 'border-red-400' : 'border-gray-500'}`}>
-                              {expenseType === 'normal' && <span className="w-2 h-2 rounded-full bg-red-400"></span>}
+                            <span className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${incomeType === 'normal' ? 'border-green-400' : 'border-gray-500'}`}>
+                              {incomeType === 'normal' && <span className="w-2 h-2 rounded-full bg-green-400"></span>}
                             </span>
-                            <span>รายจ่ายปกติ (default)</span>
+                            <span>รายรับปกติ (default)</span>
                           </button>
                           <button
                             type="button"
-                            onClick={() => setExpenseType('other')}
-                            className={`py-2 px-3 rounded-xl text-xs sm:text-sm font-medium transition-all border flex items-center justify-center gap-2 ${
-                              expenseType === 'other'
-                                ? 'bg-amber-500/20 border-amber-500 text-amber-400 font-bold shadow-[0_0_12px_rgba(245,158,11,0.3)]'
+                            onClick={() => setIncomeType('refund')}
+                            className={`py-2 px-3 rounded-xl text-xs sm:text-sm font-medium transition-all border flex items-center justify-center gap-2 ${incomeType === 'refund'
+                                ? 'bg-teal-500/20 border-teal-500 text-teal-400 font-bold shadow-[0_0_12px_rgba(20,184,166,0.3)]'
                                 : 'bg-slate-800/60 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-gray-200'
-                            }`}
+                              }`}
                           >
-                            <span className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${expenseType === 'other' ? 'border-amber-400' : 'border-gray-500'}`}>
-                              {expenseType === 'other' && <span className="w-2 h-2 rounded-full bg-amber-400"></span>}
+                            <span className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${incomeType === 'refund' ? 'border-teal-400' : 'border-gray-500'}`}>
+                              {incomeType === 'refund' && <span className="w-2 h-2 rounded-full bg-teal-400"></span>}
                             </span>
-                            <span>รายจ่ายอื่นๆ</span>
+                            <span>เงินโอนคืน</span>
                           </button>
                         </div>
                       </div>
+                    )}
 
-                      {paymentMethod !== 'บัตรเครดิต' && paymentMethod !== 'ช้อปปี้' && (
-                        <div>
-                           <label>หักจากบัญชี</label>
-                           <select value={selectedSourceAccountId} onChange={e => setSelectedSourceAccountId(e.target.value)}>
-                             {accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
-                           </select>
-                        </div>
-                      )}
-                      <div className="md:col-span-2">
-                        <label>ช่องทางชำระเงิน</label>
-                        <PaymentChips />
+                    <div>
+                      <label className="flex items-center justify-between">
+                        {type === 'income' ? 'หมวดหมู่รายรับ' : 'หมวดหมู่ (ปกติ)'}
+                      </label>
+                      <select value={category} onChange={e => {
+                        const val = e.target.value;
+                        setCategory(val);
+                        if (type === 'expense' && val === 'ค่าใช้จ่ายของคนอื่น') {
+                          setExpenseType('other');
+                        }
+                      }} disabled={type === 'expense' && !!selectedProjectId}>
+                        {type === 'income'
+                          ? incomeCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)
+                          : CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)
+                        }
+                      </select>
+                    </div>
+                    {type === 'income' && (
+                      <div>
+                        <label>เข้าบัญชี (ถ้ามี)</label>
+                        <select value={selectedIncomeAccountId} onChange={e => setSelectedIncomeAccountId(e.target.value)}>
+                          {accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
+                        </select>
                       </div>
-                    </>
-                  )}
-                </div>
-              )}
+                    )}
+                    {type === 'expense' && (
+                      <>
+                        <div className="md:col-span-2">
+                          <label className="text-sm font-medium text-gray-300 mb-1.5 flex items-center justify-between">
+                            <span>ประเภทรายจ่าย</span>
+                            <span className="text-[11px] text-muted">
+                              {expenseType === 'normal' ? '✓ จ่ายจากเงินเดือนรอบบิลนี้' : '✓ ไม่ได้เอาเงินเดือนจ่าย'}
+                            </span>
+                          </label>
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setExpenseType('normal')}
+                              className={`py-2 px-3 rounded-xl text-xs sm:text-sm font-medium transition-all border flex items-center justify-center gap-2 ${expenseType === 'normal'
+                                  ? 'bg-red-500/20 border-red-500 text-red-400 font-bold shadow-[0_0_12px_rgba(239,68,68,0.3)]'
+                                  : 'bg-slate-800/60 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-gray-200'
+                                }`}
+                            >
+                              <span className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${expenseType === 'normal' ? 'border-red-400' : 'border-gray-500'}`}>
+                                {expenseType === 'normal' && <span className="w-2 h-2 rounded-full bg-red-400"></span>}
+                              </span>
+                              <span>รายจ่ายปกติ (default)</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setExpenseType('other')}
+                              className={`py-2 px-3 rounded-xl text-xs sm:text-sm font-medium transition-all border flex items-center justify-center gap-2 ${expenseType === 'other'
+                                  ? 'bg-amber-500/20 border-amber-500 text-amber-400 font-bold shadow-[0_0_12px_rgba(245,158,11,0.3)]'
+                                  : 'bg-slate-800/60 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-gray-200'
+                                }`}
+                            >
+                              <span className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${expenseType === 'other' ? 'border-amber-400' : 'border-gray-500'}`}>
+                                {expenseType === 'other' && <span className="w-2 h-2 rounded-full bg-amber-400"></span>}
+                              </span>
+                              <span>รายจ่ายอื่นๆ</span>
+                            </button>
+                          </div>
+                        </div>
 
-              {type === 'cc_payment' && (
-                 <div className="flex flex-col gap-4">
-                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                     <div>
-                       <label>บิลที่ต้องการจ่าย</label>
-                       <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}>
-                         <option value="บัตรเครดิต">💳 บิลบัตรเครดิต</option>
-                         <option value="ช้อปปี้">🧡 บิลช้อปปี้</option>
-                       </select>
-                     </div>
-                     <div>
-                       <label>หักจากบัญชี</label>
-                       <select value={selectedSourceAccountId} onChange={e => setSelectedSourceAccountId(e.target.value)}>
-                         {accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
-                       </select>
-                     </div>
-                   </div>
+                        {paymentMethod !== 'บัตรเครดิต' && paymentMethod !== 'ช้อปปี้' && (
+                          <div>
+                            <label>หักจากบัญชี</label>
+                            <select value={selectedSourceAccountId} onChange={e => setSelectedSourceAccountId(e.target.value)}>
+                              {accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
+                            </select>
+                          </div>
+                        )}
+                        <div className="md:col-span-2">
+                          <label>ช่องทางชำระเงิน</label>
+                          <PaymentChips />
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
 
-                   {/* Quick-fill: เลือกรอบบิลที่ต้องการจ่าย */}
-                   {(() => {
-                     const summary = paymentMethodSummary[paymentMethod] || { total: 0, paid: 0 };
-                     const currentDue = Math.max(0, summary.total - summary.paid);
-                     const nextDue = paymentMethod === 'บัตรเครดิต' ? nextCycleCCExpense : nextCycleShopeeExpense;
-                     if (summary.total === 0 && nextDue === 0) return null;
-                     const [nextY, nextM] = viewMonth.split('-').map(Number);
-                     const nextDate = new Date(nextY, nextM, 1);
-                     const nextMonthNames = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
-                     const nextMonthStr = `${nextMonthNames[nextDate.getMonth()]} ${nextDate.getFullYear()}`;
-                     return (
-                       <div className="flex flex-col gap-1.5 p-3 bg-slate-800/60 rounded-xl border border-slate-700/50">
-                         <div className="text-xs text-gray-400 font-medium mb-0.5">📋 กดเพื่อใส่ยอดที่ต้องการจ่าย</div>
+                {type === 'cc_payment' && (
+                  <div className="flex flex-col gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label>บิลที่ต้องการจ่าย</label>
+                        <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}>
+                          <option value="บัตรเครดิต">💳 บิลบัตรเครดิต</option>
+                          <option value="ช้อปปี้">🧡 บิลช้อปปี้</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label>หักจากบัญชี</label>
+                        <select value={selectedSourceAccountId} onChange={e => setSelectedSourceAccountId(e.target.value)}>
+                          {accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
+                        </select>
+                      </div>
+                    </div>
 
-                         {/* รอบบิลปัจจุบัน */}
-                         <div className="flex justify-between items-center py-1.5 px-2 rounded-lg hover:bg-slate-700/40 transition-colors group">
-                           <div className="flex flex-col">
-                             <span className="text-sm text-gray-200">รอบบิลปัจจุบัน <span className="text-xs text-muted">({displayMonthStr})</span></span>
-                             <span className="text-[11px] text-muted">ยอดค้างจ่ายรอบนี้</span>
-                           </div>
-                           <button
-                             type="button"
-                             onClick={() => setAmount(currentDue.toFixed(2))}
-                             className="text-sm font-bold text-orange-400 hover:text-orange-300 bg-orange-400/10 hover:bg-orange-400/20 border border-orange-400/30 hover:border-orange-400/60 px-3 py-1 rounded-lg transition-all"
-                           >
-                             ฿ {formatMoney(currentDue)}
-                           </button>
-                         </div>
+                    {/* Quick-fill: เลือกรอบบิลที่ต้องการจ่าย */}
+                    {(() => {
+                      const summary = paymentMethodSummary[paymentMethod] || { total: 0, paid: 0 };
+                      const currentDue = Math.max(0, summary.total - summary.paid);
+                      const nextDue = paymentMethod === 'บัตรเครดิต' ? nextCycleCCExpense : nextCycleShopeeExpense;
+                      if (summary.total === 0 && nextDue === 0) return null;
+                      const [nextY, nextM] = viewMonth.split('-').map(Number);
+                      const nextDate = new Date(nextY, nextM, 1);
+                      const nextMonthNames = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
+                      const nextMonthStr = `${nextMonthNames[nextDate.getMonth()]} ${nextDate.getFullYear()}`;
+                      return (
+                        <div className="flex flex-col gap-1.5 p-3 bg-slate-800/60 rounded-xl border border-slate-700/50">
+                          <div className="text-xs text-gray-400 font-medium mb-0.5">📋 กดเพื่อใส่ยอดที่ต้องการจ่าย</div>
 
-                         {/* รอบบิลถัดไป (วันที่ 20+) */}
-                         {nextDue > 0 && (
-                           <div className="flex justify-between items-center py-1.5 px-2 rounded-lg hover:bg-slate-700/40 transition-colors group">
-                             <div className="flex flex-col">
-                               <span className="text-sm text-gray-200">รอบบิลถัดไป <span className="text-xs text-muted">({nextMonthStr})</span></span>
-                               <span className="text-[11px] text-blue-400/80">รายการวันที่ 20+ ที่ทบไปรอบหน้า — จ่ายล่วงหน้าได้</span>
-                             </div>
-                             <button
-                               type="button"
-                               onClick={() => setAmount(nextDue.toFixed(2))}
-                               className="text-sm font-bold text-blue-400 hover:text-blue-300 bg-blue-400/10 hover:bg-blue-400/20 border border-blue-400/30 hover:border-blue-400/60 px-3 py-1 rounded-lg transition-all"
-                             >
-                               ฿ {formatMoney(nextDue)}
-                             </button>
-                           </div>
-                         )}
+                          {/* รอบบิลปัจจุบัน */}
+                          <div className="flex justify-between items-center py-1.5 px-2 rounded-lg hover:bg-slate-700/40 transition-colors group">
+                            <div className="flex flex-col">
+                              <span className="text-sm text-gray-200">รอบบิลปัจจุบัน <span className="text-xs text-muted">({displayMonthStr})</span></span>
+                              <span className="text-[11px] text-muted">ยอดค้างจ่ายรอบนี้</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setAmount(currentDue.toFixed(2))}
+                              className="text-sm font-bold text-orange-400 hover:text-orange-300 bg-orange-400/10 hover:bg-orange-400/20 border border-orange-400/30 hover:border-orange-400/60 px-3 py-1 rounded-lg transition-all"
+                            >
+                              ฿ {formatMoney(currentDue)}
+                            </button>
+                          </div>
 
-                         {/* จ่ายรวมทั้ง 2 รอบ */}
-                         {nextDue > 0 && currentDue > 0 && (
-                           <div className="flex justify-between items-center py-1.5 px-2 rounded-lg hover:bg-slate-700/40 transition-colors border-t border-slate-700/60 mt-0.5 pt-2">
-                             <div className="flex flex-col">
-                               <span className="text-sm font-semibold text-green-400">จ่ายรวมทั้ง 2 รอบ</span>
-                               <span className="text-[11px] text-muted">ปิดรอบนี้ + จ่ายล่วงหน้ารอบหน้า</span>
-                             </div>
-                             <button
-                               type="button"
-                               onClick={() => setAmount((currentDue + nextDue).toFixed(2))}
-                               className="text-sm font-bold text-green-400 hover:text-green-300 bg-green-400/10 hover:bg-green-400/20 border border-green-400/30 hover:border-green-400/60 px-3 py-1 rounded-lg transition-all"
-                             >
-                               ฿ {formatMoney(currentDue + nextDue)}
-                             </button>
-                           </div>
-                         )}
-                       </div>
-                     );
-                   })()}
+                          {/* รอบบิลถัดไป (วันที่ 20+) */}
+                          {nextDue > 0 && (
+                            <div className="flex justify-between items-center py-1.5 px-2 rounded-lg hover:bg-slate-700/40 transition-colors group">
+                              <div className="flex flex-col">
+                                <span className="text-sm text-gray-200">รอบบิลถัดไป <span className="text-xs text-muted">({nextMonthStr})</span></span>
+                                <span className="text-[11px] text-blue-400/80">รายการวันที่ 20+ ที่ทบไปรอบหน้า — จ่ายล่วงหน้าได้</span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => setAmount(nextDue.toFixed(2))}
+                                className="text-sm font-bold text-blue-400 hover:text-blue-300 bg-blue-400/10 hover:bg-blue-400/20 border border-blue-400/30 hover:border-blue-400/60 px-3 py-1 rounded-lg transition-all"
+                              >
+                                ฿ {formatMoney(nextDue)}
+                              </button>
+                            </div>
+                          )}
 
-                   <div className="p-3 bg-indigo-900/30 border border-indigo-500/50 rounded-lg text-sm text-indigo-300">
+                          {/* จ่ายรวมทั้ง 2 รอบ */}
+                          {nextDue > 0 && currentDue > 0 && (
+                            <div className="flex justify-between items-center py-1.5 px-2 rounded-lg hover:bg-slate-700/40 transition-colors border-t border-slate-700/60 mt-0.5 pt-2">
+                              <div className="flex flex-col">
+                                <span className="text-sm font-semibold text-green-400">จ่ายรวมทั้ง 2 รอบ</span>
+                                <span className="text-[11px] text-muted">ปิดรอบนี้ + จ่ายล่วงหน้ารอบหน้า</span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => setAmount((currentDue + nextDue).toFixed(2))}
+                                className="text-sm font-bold text-green-400 hover:text-green-300 bg-green-400/10 hover:bg-green-400/20 border border-green-400/30 hover:border-green-400/60 px-3 py-1 rounded-lg transition-all"
+                              >
+                                ฿ {formatMoney(currentDue + nextDue)}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+
+                    <div className="p-3 bg-indigo-900/30 border border-indigo-500/50 rounded-lg text-sm text-indigo-300">
                       ℹ️ การ <b>"จ่ายบิล"</b> จะหักยอดออกจาก <u className="px-1 text-white">เงินในบัญชี</u> และไปลดยอด <u className="px-1 text-white">หนี้สะสม</u> ให้โดยอัตโนมัติ (และไม่ถูกนับเป็นรายจ่ายซ้ำ)
-                   </div>
-                 </div>
-              )}
+                    </div>
+                  </div>
+                )}
 
-              {type === 'transfer' && (
-                 <div className="flex flex-col gap-4">
-                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                     <div>
-                       <label>โอนจากบัญชี (ต้นทาง)</label>
-                       <select value={selectedSourceAccountId} onChange={e => setSelectedSourceAccountId(e.target.value)}>
-                         {accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
-                       </select>
-                     </div>
-                     <div>
-                       <label>เข้าบัญชี (ปลายทาง)</label>
-                       <select value={selectedTargetAccountId} onChange={e => setSelectedTargetAccountId(e.target.value)}>
-                         {accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
-                       </select>
-                     </div>
-                   </div>
-                   <div className="p-3 bg-teal-900/30 border border-teal-500/50 rounded-lg text-sm text-teal-300">
+                {type === 'transfer' && (
+                  <div className="flex flex-col gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label>โอนจากบัญชี (ต้นทาง)</label>
+                        <select value={selectedSourceAccountId} onChange={e => setSelectedSourceAccountId(e.target.value)}>
+                          {accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label>เข้าบัญชี (ปลายทาง)</label>
+                        <select value={selectedTargetAccountId} onChange={e => setSelectedTargetAccountId(e.target.value)}>
+                          {accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                    <div className="p-3 bg-teal-900/30 border border-teal-500/50 rounded-lg text-sm text-teal-300">
                       ℹ️ <b>"โอนย้าย / เก็บเงิน"</b> ใช้จดบันทึกช่วยจำเมื่อโยกเงินระหว่างบัญชีของตัวเอง <u className="px-1 text-white">จะข้ามการคำนวณยอดเงินรวม</u> และไม่ถูกนับเป็นรายรับ/รายจ่ายให้ซ้ำซ้อน
-                   </div>
-                 </div>
-              )}
+                    </div>
+                  </div>
+                )}
 
-              <div className="flex gap-2 mt-2">
-                <button type="submit" className="btn-primary flex-1">
-                   {editingId ? 'อัพเดทรายการ' : 'บันทึกรายการ'}
-                </button>
-                {editingId && (
-                   <button type="button" className="btn-secondary flex-1" onClick={() => {
+                <div className="flex gap-2 mt-2">
+                  <button type="submit" className="btn-primary flex-1">
+                    {editingId ? 'อัพเดทรายการ' : 'บันทึกรายการ'}
+                  </button>
+                  {editingId && (
+                    <button type="button" className="btn-secondary flex-1" onClick={() => {
                       setEditingId(null);
                       setAmount(''); setMemo(''); setExpenseType('normal'); setIncomeType('normal');
-                   }}>
+                    }}>
                       ยกเลิกแก้ไข
-                   </button>
-                )}
-              </div>
-            </form>
+                    </button>
+                  )}
+                </div>
+              </form>
             )}
           </div>
 
           <div className="glass-card print:border-gray-300">
-             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3 print:mb-2">
-               <div className="flex items-center gap-2 group cursor-pointer" onClick={() => toggleSection('history')}>
-                 <h2 className="text-xl font-bold flex items-center gap-2 print:text-black">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3 print:mb-2">
+              <div className="flex items-center gap-2 group cursor-pointer" onClick={() => toggleSection('history')}>
+                <h2 className="text-xl font-bold flex items-center gap-2 print:text-black">
                   <Calendar size={20} /> ประวัติรอบบิลนี้ ({displayMonthStr})
-                 </h2>
-                 <button className="text-gray-500 group-hover:text-gray-300 p-1 no-print shrink-0">
-                   {collapsedSections['history'] ? <ChevronDown size={20}/> : <ChevronUp size={20}/>}
-                 </button>
-               </div>
-               {!collapsedSections['history'] && (
-               <select 
-                 value={historyFilter} 
-                 onChange={e => setHistoryFilter(e.target.value)}
-                 className="bg-slate-800 text-sm border-gray-700 py-1.5 px-3 w-full sm:w-auto h-auto min-h-[36px] no-print rounded-lg"
-               >
-                 <optgroup label="ประเภทรายการ">
-                   <option value="all">รวมทุกรายการ</option>
-                   <option value="income">รายรับรวมทั้งหมด (+)</option>
-                   <option value="income_normal">รายรับปกติ (เงินเดือน/รายได้)</option>
-                   <option value="income_refund">เงินโอนคืน (คนอื่นโอนคืน)</option>
-                   <option value="expense_normal">รายจ่ายปกติ (จากเงินเดือน)</option>
-                   <option value="expense_other">รายจ่ายอื่นๆ (ไม่ได้เอาเงินเดือนจ่าย)</option>
-                   <option value="expense_cash">จ่ายปกติ (เงินสด/โอน)</option>
-                   <option value="credit_card">💳 บัตรเครดิต</option>
-                   <option value="shopee">🧡 ช้อปปี้</option>
-                   <option value="transfer">🔄 โอนย้ายบัญชี</option>
-                 </optgroup>
-                 <optgroup label="แยกรายจ่าย/โอน (ตามบัญชีที่หักเงิน)">
-                   {accounts.map(acc => (
-                     <option key={`out_from_${acc.id}`} value={`out_from_${acc.id}`}>หักจากบัญชี: {acc.name}</option>
-                   ))}
-                 </optgroup>
-                 <optgroup label="แยกรายจ่ายตามหมวด">
-                   {CATEGORIES.map(cat => (
-                     <option key={`cat_${cat}`} value={`cat_${cat}`}>หมวด: {cat}</option>
-                   ))}
-                 </optgroup>
-               </select>
-               )}
-             </div>
-            {!collapsedSections['history'] && (
-            <div className="flex flex-col gap-3 max-h-[500px] overflow-y-auto pr-2 print:max-h-none print:overflow-visible">
-              {displayHistoryTransactions.length === 0 ? (
-                <p className="text-center text-muted py-4 print:text-black">ยังไม่มีรายการในหมวดที่เลือก</p>
-              ) : (
-                displayHistoryTransactions.map(tx => (
-                  <div key={tx.id} className="glass-card hover:bg-opacity-80 transaction-item flex justify-between items-center print:border-gray-300 print:text-black print:mb-2" style={{ padding: '0.75rem 1rem' }}>
-                    <div className="flex flex-col min-w-0 flex-1 pr-3">
-                      <span className="font-medium text-main print:text-black truncate">{tx.memo}</span>
-                      <div className="flex flex-wrap items-center gap-2 mt-1.5">
-                        <span className="text-[11px] text-muted font-light px-1.5 py-0.5 bg-slate-800 rounded border border-gray-700 print:border-gray-300 print:bg-transparent print:text-black whitespace-nowrap">
-                          {displayDate(tx.date)}
-                        </span>
-                        {tx.type === 'income' && tx.category && (
-                          <span className="text-[11px] text-green border border-green-500/30 px-1.5 py-0.5 rounded print:text-green-700 whitespace-nowrap">{tx.category}</span>
-                        )}
-                        {tx.type === 'income' && tx.incomeType === 'refund' && (
-                          <span className="text-[11px] text-teal-400 border border-teal-400/40 bg-teal-400/10 px-1.5 py-0.5 rounded print:text-teal-700 whitespace-nowrap font-medium">
-                            เงินโอนคืน
-                          </span>
-                        )}
-                        {tx.type === 'expense' && !tx.projectId && (
-                          <span className="text-[11px] text-blue-400 border border-blue-400/30 px-1.5 py-0.5 rounded print:text-blue-700 whitespace-nowrap">{tx.category}</span>
-                        )}
-                        {tx.type === 'expense' && tx.expenseType === 'other' && (
-                          <span className="text-[11px] text-amber-400 border border-amber-400/40 bg-amber-400/10 px-1.5 py-0.5 rounded print:text-amber-700 whitespace-nowrap font-medium">
-                            รายจ่ายอื่นๆ
-                          </span>
-                        )}
-                        {tx.type === 'expense' && tx.projectId && (
-                           <span className="text-[11px] text-purple-400 border border-purple-400/30 px-1.5 py-0.5 rounded flex items-center gap-1 print:text-purple-700 whitespace-nowrap">
-                              <Briefcase size={10} /> {projects.find(p=>p.id===tx.projectId)?.name || 'โปรเจค'}
-                           </span>
-                        )}
-                        {tx.type === 'expense' && (
-                          <span className="text-[11px] text-indigo-400 border border-indigo-400/30 px-1.5 py-0.5 rounded print:text-indigo-700 whitespace-nowrap">
-                            {tx.paymentMethod === 'ช้อปปี้' ? '🧡 ' : ''}{tx.paymentMethod}{tx.sourceAccountId && tx.paymentMethod !== 'บัตรเครดิต' && tx.paymentMethod !== 'ช้อปปี้' && accounts.find(a => a.id === tx.sourceAccountId) ? ` (${accounts.find(a => a.id === tx.sourceAccountId).name})` : ''}
-                          </span>
-                        )}
-                        {tx.type === 'cc_payment' && (
-                          <span className="text-[11px] text-indigo-300 border border-indigo-500/50 px-1.5 py-0.5 rounded print:text-indigo-700 whitespace-nowrap">
-                            {tx.paymentMethod === 'ช้อปปี้' ? '🧡 บิลช้อปปี้' : '💳 บิลบัตรเครดิต'}{tx.sourceAccountId && accounts.find(a => a.id === tx.sourceAccountId) ? ` (${accounts.find(a => a.id === tx.sourceAccountId).name})` : ''}
-                          </span>
-                        )}
-                        {tx.type === 'transfer' && (
-                          <span className="text-[11px] text-teal-300 border border-teal-500/50 px-1.5 py-0.5 rounded print:text-teal-700 whitespace-nowrap">
-                            🔄 โอน {tx.sourceAccountId && accounts.find(a => a.id === tx.sourceAccountId) ? accounts.find(a => a.id === tx.sourceAccountId).name : 'ภายใน'}
-                            {tx.targetAccountId && accounts.find(a => a.id === tx.targetAccountId) ? ` → ${accounts.find(a => a.id === tx.targetAccountId).name}` : ''}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      <span className={`font-bold ${tx.type === 'income' ? 'text-green print:text-green-700' : tx.type === 'transfer' ? 'text-teal-400 print:text-teal-700' : tx.type === 'cc_payment' ? 'text-indigo-400 print:text-indigo-700' : 'text-red print:text-red-700'}`}>
-                        {tx.type === 'income' ? '+' : tx.type === 'transfer' ? '↔' : '-'} {formatMoney(tx.amount)}
-                      </span>
-                      <div className="flex gap-1 sm:gap-2 items-center ml-2">
-                        <button onClick={() => handleEdit(tx)} className="text-gray-400 hover:text-blue-400 transition-colors bg-transparent p-1 shadow-none no-print"> <Edit2 size={16} /> </button>
-                        <button onClick={() => deleteTransaction(tx.id)} className="text-gray-400 hover:text-red-400 transition-colors bg-transparent p-1 shadow-none no-print"> <Trash2 size={16} /> </button>
-                      </div>
-                    </div>
-                  </div>
-                ))
+                </h2>
+                <button className="text-gray-500 group-hover:text-gray-300 p-1 no-print shrink-0">
+                  {collapsedSections['history'] ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
+                </button>
+              </div>
+              {!collapsedSections['history'] && (
+                <select
+                  value={historyFilter}
+                  onChange={e => setHistoryFilter(e.target.value)}
+                  className="bg-slate-800 text-sm border-gray-700 py-1.5 px-3 w-full sm:w-auto h-auto min-h-[36px] no-print rounded-lg"
+                >
+                  <optgroup label="ประเภทรายการ">
+                    <option value="all">รวมทุกรายการ</option>
+                    <option value="income">รายรับรวมทั้งหมด (+)</option>
+                    <option value="income_normal">รายรับปกติ (เงินเดือน/รายได้)</option>
+                    <option value="income_refund">เงินโอนคืน (คนอื่นโอนคืน)</option>
+                    <option value="expense_normal">รายจ่ายปกติ (จากเงินเดือน)</option>
+                    <option value="expense_other">รายจ่ายอื่นๆ (ไม่ได้เอาเงินเดือนจ่าย)</option>
+                    <option value="expense_cash">จ่ายปกติ (เงินสด/โอน)</option>
+                    <option value="credit_card">💳 บัตรเครดิต</option>
+                    <option value="shopee">🧡 ช้อปปี้</option>
+                    <option value="transfer">🔄 โอนย้ายบัญชี</option>
+                  </optgroup>
+                  <optgroup label="แยกรายจ่าย/โอน (ตามบัญชีที่หักเงิน)">
+                    {accounts.map(acc => (
+                      <option key={`out_from_${acc.id}`} value={`out_from_${acc.id}`}>หักจากบัญชี: {acc.name}</option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="แยกรายจ่ายตามหมวด">
+                    {CATEGORIES.map(cat => (
+                      <option key={`cat_${cat}`} value={`cat_${cat}`}>หมวด: {cat}</option>
+                    ))}
+                  </optgroup>
+                </select>
               )}
             </div>
+            {!collapsedSections['history'] && (
+              <div className="flex flex-col gap-3 max-h-[500px] overflow-y-auto pr-2 print:max-h-none print:overflow-visible">
+                {displayHistoryTransactions.length === 0 ? (
+                  <p className="text-center text-muted py-4 print:text-black">ยังไม่มีรายการในหมวดที่เลือก</p>
+                ) : (
+                  displayHistoryTransactions.map(tx => (
+                    <div key={tx.id} className="glass-card hover:bg-opacity-80 transaction-item flex justify-between items-center print:border-gray-300 print:text-black print:mb-2" style={{ padding: '0.75rem 1rem' }}>
+                      <div className="flex flex-col min-w-0 flex-1 pr-3">
+                        <span className="font-medium text-main print:text-black truncate">{tx.memo}</span>
+                        <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                          <span className="text-[11px] text-muted font-light px-1.5 py-0.5 bg-slate-800 rounded border border-gray-700 print:border-gray-300 print:bg-transparent print:text-black whitespace-nowrap">
+                            {displayDate(tx.date)}
+                          </span>
+                          {tx.type === 'income' && tx.category && (
+                            <span className="text-[11px] text-green border border-green-500/30 px-1.5 py-0.5 rounded print:text-green-700 whitespace-nowrap">{tx.category}</span>
+                          )}
+                          {tx.type === 'income' && tx.incomeType === 'refund' && (
+                            <span className="text-[11px] text-teal-400 border border-teal-400/40 bg-teal-400/10 px-1.5 py-0.5 rounded print:text-teal-700 whitespace-nowrap font-medium">
+                              เงินโอนคืน
+                            </span>
+                          )}
+                          {tx.type === 'expense' && !tx.projectId && (
+                            <span className="text-[11px] text-blue-400 border border-blue-400/30 px-1.5 py-0.5 rounded print:text-blue-700 whitespace-nowrap">{tx.category}</span>
+                          )}
+                          {tx.type === 'expense' && tx.expenseType === 'other' && (
+                            <span className="text-[11px] text-amber-400 border border-amber-400/40 bg-amber-400/10 px-1.5 py-0.5 rounded print:text-amber-700 whitespace-nowrap font-medium">
+                              รายจ่ายอื่นๆ
+                            </span>
+                          )}
+                          {tx.type === 'expense' && tx.projectId && (
+                            <span className="text-[11px] text-purple-400 border border-purple-400/30 px-1.5 py-0.5 rounded flex items-center gap-1 print:text-purple-700 whitespace-nowrap">
+                              <Briefcase size={10} /> {projects.find(p => p.id === tx.projectId)?.name || 'โปรเจค'}
+                            </span>
+                          )}
+                          {tx.type === 'expense' && (
+                            <span className="text-[11px] text-indigo-400 border border-indigo-400/30 px-1.5 py-0.5 rounded print:text-indigo-700 whitespace-nowrap">
+                              {tx.paymentMethod === 'ช้อปปี้' ? '🧡 ' : ''}{tx.paymentMethod}{tx.sourceAccountId && tx.paymentMethod !== 'บัตรเครดิต' && tx.paymentMethod !== 'ช้อปปี้' && accounts.find(a => a.id === tx.sourceAccountId) ? ` (${accounts.find(a => a.id === tx.sourceAccountId).name})` : ''}
+                            </span>
+                          )}
+                          {tx.type === 'cc_payment' && (
+                            <span className="text-[11px] text-indigo-300 border border-indigo-500/50 px-1.5 py-0.5 rounded print:text-indigo-700 whitespace-nowrap">
+                              {tx.paymentMethod === 'ช้อปปี้' ? '🧡 บิลช้อปปี้' : '💳 บิลบัตรเครดิต'}{tx.sourceAccountId && accounts.find(a => a.id === tx.sourceAccountId) ? ` (${accounts.find(a => a.id === tx.sourceAccountId).name})` : ''}
+                            </span>
+                          )}
+                          {tx.type === 'transfer' && (
+                            <span className="text-[11px] text-teal-300 border border-teal-500/50 px-1.5 py-0.5 rounded print:text-teal-700 whitespace-nowrap">
+                              🔄 โอน {tx.sourceAccountId && accounts.find(a => a.id === tx.sourceAccountId) ? accounts.find(a => a.id === tx.sourceAccountId).name : 'ภายใน'}
+                              {tx.targetAccountId && accounts.find(a => a.id === tx.targetAccountId) ? ` → ${accounts.find(a => a.id === tx.targetAccountId).name}` : ''}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <span className={`font-bold ${tx.type === 'income' ? 'text-green print:text-green-700' : tx.type === 'transfer' ? 'text-teal-400 print:text-teal-700' : tx.type === 'cc_payment' ? 'text-indigo-400 print:text-indigo-700' : 'text-red print:text-red-700'}`}>
+                          {tx.type === 'income' ? '+' : tx.type === 'transfer' ? '↔' : '-'} {formatMoney(tx.amount)}
+                        </span>
+                        <div className="flex gap-1 sm:gap-2 items-center ml-2">
+                          <button onClick={() => handleEdit(tx)} className="text-gray-400 hover:text-blue-400 transition-colors bg-transparent p-1 shadow-none no-print"> <Edit2 size={16} /> </button>
+                          <button onClick={() => deleteTransaction(tx.id)} className="text-gray-400 hover:text-red-400 transition-colors bg-transparent p-1 shadow-none no-print"> <Trash2 size={16} /> </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
             )}
           </div>
         </div>
 
-        <div className="flex flex-col gap-6 w-full print:mb-8">
+        <div className="flex flex-col gap-6 w-full min-w-0 print:mb-8">
           <div className="glass-card">
-             <div className="flex justify-between items-center mb-6 group cursor-pointer" onClick={() => toggleSection('payment')}>
-                <h2 className="text-xl font-bold flex items-center gap-2 print:text-black">
+            <div className="flex justify-between items-center mb-6 group cursor-pointer" onClick={() => toggleSection('payment')}>
+              <h2 className="text-xl font-bold flex items-center gap-2 print:text-black">
                 <CreditCard size={20} /> สรุปแยกช่องทาง (รอบบิลนี้)
-                </h2>
-                <button className="text-gray-500 group-hover:text-gray-300 p-1 no-print">
-                  {collapsedSections['payment'] ? <ChevronDown size={20}/> : <ChevronUp size={20}/>}
-                </button>
-             </div>
-             
-             {!collapsedSections['payment'] && (
-             <div>
+              </h2>
+              <button className="text-gray-500 group-hover:text-gray-300 p-1 no-print">
+                {collapsedSections['payment'] ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
+              </button>
+            </div>
+
+            {!collapsedSections['payment'] && (
+              <div>
                 <div className="grid grid-cols-2 gap-2 text-sm">
-                   {PAYMENT_METHODS.map(m => {
-                      if (m === 'บัตรเครดิต' || m === 'ช้อปปี้') {
-                        const d = paymentMethodSummary[m];
-                        return (
-                          <div key={'m-'+m} className="col-span-2 flex flex-col gap-1 bg-slate-800/50 p-2.5 rounded print:border print:border-gray-300">
-                             <div className="flex justify-between items-center mb-1 pb-1 border-b border-gray-700 print:border-gray-300">
-                                <span className="text-gray-300 print:text-black font-medium">{m} <span className="text-[10px] text-indigo-400 print:text-indigo-600 font-normal">(รวมยอด)</span></span>
-                                <span className="font-bold print:text-black">฿ {formatMoney(d.total)}</span>
-                             </div>
-                             <div className="flex justify-between items-center pl-2 text-xs opacity-80 print:text-black">
-                                <span>↳ ยกมาจากเดือนก่อน (ปกติ)</span>
-                                <span>฿ {formatMoney(d.fromPrevMonth)}</span>
-                             </div>
-                             <div className="flex justify-between items-center pl-2 text-xs opacity-80 print:text-black">
-                                <span>↳ ใช้จ่ายเดือนนี้ (ปกติ)</span>
-                                <span>฿ {formatMoney(d.fromCurrentMonth)}</span>
-                             </div>
-                             {d.project > 0 && (
-                               <div className="flex justify-between items-center pl-2 text-xs text-purple-400 print:text-purple-600">
-                                  <span>↳ รูดโปรเจคพิเศษ (รอบบิลนี้)</span>
-                                  <span>฿ {formatMoney(d.project)}</span>
-                               </div>
-                             )}
-                             {d.paid > 0 && (
-                               <div className="flex justify-between items-center pl-2 text-xs text-green-400 print:text-green-600 mt-1 pt-1 border-t border-gray-700/50">
-                                  <span>↳ จ่ายบิลแล้ว (ในรอบบิลนี้)</span>
-                                  <span>- ฿ {formatMoney(d.paid)}</span>
-                               </div>
-                             )}
-                             {d.paid > 0 && (
-                               <div className="flex justify-between items-center pl-2 text-xs font-bold text-orange-400 print:text-black">
-                                  <span>ยอดหนี้บิลนี้ (คงเหลือ)</span>
-                                  <span>฿ {formatMoney(Math.max(0, d.total - d.paid))}</span>
-                               </div>
-                             )}
+                  {PAYMENT_METHODS.map(m => {
+                    if (m === 'บัตรเครดิต' || m === 'ช้อปปี้') {
+                      const d = paymentMethodSummary[m];
+                      return (
+                        <div key={'m-' + m} className="col-span-2 flex flex-col gap-1 bg-slate-800/50 p-2.5 rounded print:border print:border-gray-300">
+                          <div className="flex justify-between items-center mb-1 pb-1 border-b border-gray-700 print:border-gray-300">
+                            <span className="text-gray-300 print:text-black font-medium">{m} <span className="text-[10px] text-indigo-400 print:text-indigo-600 font-normal">(รวมยอด)</span></span>
+                            <span className="font-bold print:text-black">฿ {formatMoney(d.total)}</span>
                           </div>
-                        );
-                      } else {
-                        return (
-                          <div key={'m-'+m} className="flex justify-between bg-slate-800/50 p-2.5 rounded print:border print:border-gray-300">
-                            <span className="text-gray-300 print:text-black">{m}</span>
-                            <span className="font-medium print:text-black">฿ {formatMoney(paymentMethodSummary[m])}</span>
+                          <div className="flex justify-between items-center pl-2 text-xs opacity-80 print:text-black">
+                            <span>↳ ยกมาจากเดือนก่อน (ปกติ)</span>
+                            <span>฿ {formatMoney(d.fromPrevMonth)}</span>
                           </div>
-                        );
-                      }
-                   })}
+                          <div className="flex justify-between items-center pl-2 text-xs opacity-80 print:text-black">
+                            <span>↳ ใช้จ่ายเดือนนี้ (ปกติ)</span>
+                            <span>฿ {formatMoney(d.fromCurrentMonth)}</span>
+                          </div>
+                          {d.project > 0 && (
+                            <div className="flex justify-between items-center pl-2 text-xs text-purple-400 print:text-purple-600">
+                              <span>↳ รูดโปรเจคพิเศษ (รอบบิลนี้)</span>
+                              <span>฿ {formatMoney(d.project)}</span>
+                            </div>
+                          )}
+                          {d.paid > 0 && (
+                            <div className="flex justify-between items-center pl-2 text-xs text-green-400 print:text-green-600 mt-1 pt-1 border-t border-gray-700/50">
+                              <span>↳ จ่ายบิลแล้ว (ในรอบบิลนี้)</span>
+                              <span>- ฿ {formatMoney(d.paid)}</span>
+                            </div>
+                          )}
+                          {d.paid > 0 && (
+                            <div className="flex justify-between items-center pl-2 text-xs font-bold text-orange-400 print:text-black">
+                              <span>ยอดหนี้บิลนี้ (คงเหลือ)</span>
+                              <span>฿ {formatMoney(Math.max(0, d.total - d.paid))}</span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    } else {
+                      return (
+                        <div key={'m-' + m} className="flex justify-between bg-slate-800/50 p-2.5 rounded print:border print:border-gray-300">
+                          <span className="text-gray-300 print:text-black">{m}</span>
+                          <span className="font-medium print:text-black">฿ {formatMoney(paymentMethodSummary[m])}</span>
+                        </div>
+                      );
+                    }
+                  })}
                 </div>
-             </div>
-             )}
+              </div>
+            )}
           </div>
 
           <div className="glass-card">
@@ -1567,65 +1566,65 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
                   <Plus size={14} /> เพิ่มหมวด
                 </button>
                 <button className="text-gray-500 group-hover:text-gray-300 p-1 no-print">
-                  {collapsedSections['budget'] ? <ChevronDown size={20}/> : <ChevronUp size={20}/>}
+                  {collapsedSections['budget'] ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
                 </button>
               </div>
             </div>
-            
+
             {!collapsedSections['budget'] && (
-            <>
-            <p className="text-xs text-muted mb-6 opacity-75 no-print">💡 แตะที่ตัวเลขยอดเงิน / งบ เพื่อแก้ไขเป้าหมาย</p>
+              <>
+                <p className="text-xs text-muted mb-6 opacity-75 no-print">💡 แตะที่ตัวเลขยอดเงิน / งบ เพื่อแก้ไขเป้าหมาย</p>
 
-            <div className="budget-cards-grid">
-              {CATEGORIES.map(cat => {
-                const spent = categoryExpenses[cat] || 0;
-                const limit = budgets[cat] || 0;
-                const remaining = limit - spent;
-                const percent = limit > 0 ? Math.min((spent / limit) * 100, 100) : (spent > 0 ? 100 : 0);
-                const catPercent = calendarMonthExpense > 0 ? ((spent / calendarMonthExpense) * 100).toFixed(1) : '0';
+                <div className="budget-cards-grid">
+                  {CATEGORIES.map(cat => {
+                    const spent = categoryExpenses[cat] || 0;
+                    const limit = budgets[cat] || 0;
+                    const remaining = limit - spent;
+                    const percent = limit > 0 ? Math.min((spent / limit) * 100, 100) : (spent > 0 ? 100 : 0);
+                    const catPercent = calendarMonthExpense > 0 ? ((spent / calendarMonthExpense) * 100).toFixed(1) : '0';
 
-                let statusColor = 'var(--accent-green)';
-                if (percent > 85) statusColor = 'var(--accent-red)';
-                else if (percent > 65) statusColor = 'var(--accent-orange)';
+                    let statusColor = 'var(--accent-green)';
+                    if (percent > 85) statusColor = 'var(--accent-red)';
+                    else if (percent > 65) statusColor = 'var(--accent-orange)';
 
-                const editLimit = () => {
-                  const newLimit = prompt(`ตั้งค่างบประมาณสำหรับ: ${cat}`, limit);
-                  if (newLimit !== null && !isNaN(newLimit) && newLimit !== '') {
-                    setBudgets(prev => ({...prev, [cat]: parseFloat(newLimit)}));
-                  }
-                };
+                    const editLimit = () => {
+                      const newLimit = prompt(`ตั้งค่างบประมาณสำหรับ: ${cat}`, limit);
+                      if (newLimit !== null && !isNaN(newLimit) && newLimit !== '') {
+                        setBudgets(prev => ({ ...prev, [cat]: parseFloat(newLimit) }));
+                      }
+                    };
 
-                return (
-                  <div key={cat} className="budget-card-item" style={{ border: `1px solid ${percent >= 100 ? 'rgba(239,68,68,0.5)' : 'rgba(71,85,105,0.5)'}` }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, marginBottom: '2px' }}>
-                      <span style={{ fontWeight: 600, fontSize: '13px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{cat}</span>
-                      {parseFloat(catPercent) > 0 && (
-                        <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '999px', fontWeight: 700, backgroundColor: 'rgba(59,130,246,0.15)', color: 'var(--accent-blue)', border: '1px solid rgba(59,130,246,0.3)', flexShrink: 0 }}>{catPercent}%</span>
-                      )}
-                      <button onClick={() => editCategoryName(cat)} className="no-print" style={{ backgroundColor: 'transparent', boxShadow: 'none', padding: 0, border: 'none', color: '#9ca3af', flexShrink: 0, cursor: 'pointer' }} title="แก้ไขชื่อหมวด">
-                        <Edit2 size={12} />
-                      </button>
-                    </div>
-                    <div className="budget-row">
-                      <span style={{ color: '#9ca3af' }}>ใช้ไป</span>
-                      <span style={{ fontWeight: 700, color: percent >= 100 ? 'var(--accent-red)' : '#e5e7eb' }}>฿{formatMoney(spent)}</span>
-                    </div>
-                    <div className="budget-row">
-                      <span style={{ color: '#9ca3af' }}>เป้า</span>
-                      <span onClick={editLimit} style={{ cursor: 'pointer', color: '#cbd5e1' }} title="แตะเพื่อแก้ไขเป้า">฿{formatMoney(limit)} <span className="no-print">✎</span></span>
-                    </div>
-                    <div className="budget-row">
-                      <span style={{ color: '#9ca3af' }}>คงเหลือ</span>
-                      <span style={{ fontWeight: 700, color: remaining < 0 ? 'var(--accent-red)' : 'var(--accent-green)' }}>฿{formatMoney(remaining)}</span>
-                    </div>
-                    <div className="progress-container" style={{ height: '6px', marginTop: '4px', background: 'rgba(15,23,42,0.8)' }}>
-                      <div className="progress-bar" style={{ width: `${percent}%`, backgroundColor: statusColor }} />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            </>
+                    return (
+                      <div key={cat} className="budget-card-item" style={{ border: `1px solid ${percent >= 100 ? 'rgba(239,68,68,0.5)' : 'rgba(71,85,105,0.5)'}` }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, marginBottom: '2px' }}>
+                          <span style={{ fontWeight: 600, fontSize: '13px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{cat}</span>
+                          {parseFloat(catPercent) > 0 && (
+                            <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '999px', fontWeight: 700, backgroundColor: 'rgba(59,130,246,0.15)', color: 'var(--accent-blue)', border: '1px solid rgba(59,130,246,0.3)', flexShrink: 0 }}>{catPercent}%</span>
+                          )}
+                          <button onClick={() => editCategoryName(cat)} className="no-print" style={{ backgroundColor: 'transparent', boxShadow: 'none', padding: 0, border: 'none', color: '#9ca3af', flexShrink: 0, cursor: 'pointer' }} title="แก้ไขชื่อหมวด">
+                            <Edit2 size={12} />
+                          </button>
+                        </div>
+                        <div className="budget-row">
+                          <span style={{ color: '#9ca3af' }}>ใช้ไป</span>
+                          <span style={{ fontWeight: 700, color: percent >= 100 ? 'var(--accent-red)' : '#e5e7eb' }}>฿{formatMoney(spent)}</span>
+                        </div>
+                        <div className="budget-row">
+                          <span style={{ color: '#9ca3af' }}>เป้า</span>
+                          <span onClick={editLimit} style={{ cursor: 'pointer', color: '#cbd5e1' }} title="แตะเพื่อแก้ไขเป้า">฿{formatMoney(limit)} <span className="no-print">✎</span></span>
+                        </div>
+                        <div className="budget-row">
+                          <span style={{ color: '#9ca3af' }}>คงเหลือ</span>
+                          <span style={{ fontWeight: 700, color: remaining < 0 ? 'var(--accent-red)' : 'var(--accent-green)' }}>฿{formatMoney(remaining)}</span>
+                        </div>
+                        <div className="progress-container" style={{ height: '6px', marginTop: '4px', background: 'rgba(15,23,42,0.8)' }}>
+                          <div className="progress-bar" style={{ width: `${percent}%`, backgroundColor: statusColor }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
             )}
           </div>
 
@@ -1635,84 +1634,84 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
                 <PieChartIcon size={20} /> สัดส่วนรายจ่าย (เฉพาะเดือนนี้)
               </h2>
               <button className="text-gray-500 group-hover:text-gray-300 p-1 no-print">
-                {collapsedSections['piechart'] ? <ChevronDown size={20}/> : <ChevronUp size={20}/>}
+                {collapsedSections['piechart'] ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
               </button>
             </div>
             {!collapsedSections['piechart'] && (
-            <>
-            {pieData.length === 0 ? (
-              <p className="text-center text-muted py-4">ยังไม่มีข้อมูล</p>
-            ) : (
               <>
-              <div className="w-full h-[250px] no-print" style={{ color: '#fff' }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={pieData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={80}
-                      paddingAngle={5}
-                      dataKey="value"
-                      stroke="rgba(255,255,255,0.1)"
-                    >
-                      {pieData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip 
-                      formatter={(value) => {
-                        const num = Number(value);
-                        return isNaN(num) ? value : `฿ ${num.toLocaleString('th-TH', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
-                      }} 
-                      contentStyle={{ backgroundColor: 'rgba(30, 41, 59, 0.9)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff' }}
-                      itemStyle={{ color: '#fff' }}
-                    />
-                    <Legend wrapperStyle={{ color: '#f8fafc', fontSize: '12px' }} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="mt-4 flex flex-col gap-2 no-print">
-                {[...pieData].sort((a,b) => b.value - a.value).map((entry, index) => {
-                  const pct = calendarMonthExpense > 0 ? ((entry.value / calendarMonthExpense) * 100).toFixed(1) : '0';
-                  const colorIdx = pieData.findIndex(d => d.name === entry.name);
-                  return (
-                    <div key={entry.name} className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2">
-                        <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: PIE_COLORS[colorIdx % PIE_COLORS.length] }} />
-                        <span className="text-gray-300">{entry.name}</span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className="text-muted text-xs">฿ {formatMoney(entry.value)}</span>
-                        <span className="font-bold text-sm min-w-[40px] text-right" style={{ color: PIE_COLORS[colorIdx % PIE_COLORS.length] }}>{pct}%</span>
-                      </div>
+                {pieData.length === 0 ? (
+                  <p className="text-center text-muted py-4">ยังไม่มีข้อมูล</p>
+                ) : (
+                  <>
+                    <div className="w-full h-[250px] min-w-0 no-print" style={{ color: '#fff', width: '100%', minWidth: 0 }}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={pieData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={60}
+                            outerRadius={80}
+                            paddingAngle={5}
+                            dataKey="value"
+                            stroke="rgba(255,255,255,0.1)"
+                          >
+                            {pieData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                            ))}
+                          </Pie>
+                          <Tooltip
+                            formatter={(value) => {
+                              const num = Number(value);
+                              return isNaN(num) ? value : `฿ ${num.toLocaleString('th-TH', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+                            }}
+                            contentStyle={{ backgroundColor: 'rgba(30, 41, 59, 0.9)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff' }}
+                            itemStyle={{ color: '#fff' }}
+                          />
+                          <Legend wrapperStyle={{ color: '#f8fafc', fontSize: '12px' }} />
+                        </PieChart>
+                      </ResponsiveContainer>
                     </div>
-                  );
-                })}
-              </div>
+                    <div className="mt-4 flex flex-col gap-2 no-print">
+                      {[...pieData].sort((a, b) => b.value - a.value).map((entry, index) => {
+                        const pct = calendarMonthExpense > 0 ? ((entry.value / calendarMonthExpense) * 100).toFixed(1) : '0';
+                        const colorIdx = pieData.findIndex(d => d.name === entry.name);
+                        return (
+                          <div key={entry.name} className="flex items-center justify-between text-sm">
+                            <div className="flex items-center gap-2">
+                              <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: PIE_COLORS[colorIdx % PIE_COLORS.length] }} />
+                              <span className="text-gray-300">{entry.name}</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span className="text-muted text-xs">฿ {formatMoney(entry.value)}</span>
+                              <span className="font-bold text-sm min-w-[40px] text-right" style={{ color: PIE_COLORS[colorIdx % PIE_COLORS.length] }}>{pct}%</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
               </>
             )}
-            </>
-            )}
           </div>
-          
+
           <div className="glass-card bg-indigo-900/20 border-indigo-500/30">
             <div className="flex justify-between items-center mb-3 group cursor-pointer" onClick={() => toggleSection('ai')}>
               <h2 className="text-xl font-bold flex items-center gap-2 text-indigo-400 print:text-indigo-700">
                 <Bot size={22} /> AI แนะนำการเงิน
               </h2>
               <button className="text-gray-500 group-hover:text-gray-300 p-1 no-print">
-                {collapsedSections['ai'] ? <ChevronDown size={20}/> : <ChevronUp size={20}/>}
+                {collapsedSections['ai'] ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
               </button>
             </div>
             {!collapsedSections['ai'] && (
-            <div className="flex gap-3 items-start bg-slate-800/60 p-4 rounded-xl print:border print:border-gray-300 print:bg-transparent print:text-black">
-              <Sparkles size={24} className={`shrink-0 ${aiRec.status === 'warning' ? 'text-red-400' : aiRec.status === 'success' ? 'text-green-400' : 'text-blue-400'}`} />
-              <p className="text-sm leading-relaxed whitespace-pre-line print:text-black text-gray-200">
-                 {aiRec.message}
-              </p>
-            </div>
+              <div className="flex gap-3 items-start bg-slate-800/60 p-4 rounded-xl print:border print:border-gray-300 print:bg-transparent print:text-black">
+                <Sparkles size={24} className={`shrink-0 ${aiRec.status === 'warning' ? 'text-red-400' : aiRec.status === 'success' ? 'text-green-400' : 'text-blue-400'}`} />
+                <p className="text-sm leading-relaxed whitespace-pre-line print:text-black text-gray-200">
+                  {aiRec.message}
+                </p>
+              </div>
             )}
           </div>
 
@@ -1726,8 +1725,8 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
         </h2>
         <p className="text-sm text-muted mb-6">
           แอปนี้เก็บข้อมูลไว้ใน <b>Cloud (Firebase)</b> และสำรองในเบราว์เซอร์เครื่องคุณโดยอัตโนมัติ
-          <br/>ข้อมูลจะซิงค์ข้ามเครื่องได้ทันทีหากใช้ Profile ชื่อเดียวกัน
-          <br/>หากต้องการย้ายเครื่องมือถือ/คอม หรือกลัวข้อมูลหาย สามารถดาวน์โหลดไฟล์สำรองเก็บไว้ได้ครับ
+          <br />ข้อมูลจะซิงค์ข้ามเครื่องได้ทันทีหากใช้ Profile ชื่อเดียวกัน
+          <br />หากต้องการย้ายเครื่องมือถือ/คอม หรือกลัวข้อมูลหาย สามารถดาวน์โหลดไฟล์สำรองเก็บไว้ได้ครับ
         </p>
         <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
           <button onClick={exportBackup} className="btn-secondary text-sm bg-slate-800/80 hover:bg-slate-700">
