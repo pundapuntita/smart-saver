@@ -397,6 +397,22 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
     return { start: startBals, end: endBals };
   }, [accounts, transactions, viewMonth]);
 
+  // Per-account income/expense for the current view month (billing cycle)
+  const accountMonthlyStats = useMemo(() => {
+    const stats = {};
+    accounts.forEach(a => { stats[a.id] = { income: 0, expense: 0 }; });
+    filteredTransactions.forEach(t => {
+      if (t.type === 'income' && t.targetAccountId && stats[t.targetAccountId] !== undefined) {
+        stats[t.targetAccountId].income += t.amount;
+      } else if (t.type === 'expense' && t.paymentMethod !== 'บัตรเครดิต' && t.paymentMethod !== 'ช้อปปี้' && t.sourceAccountId && stats[t.sourceAccountId] !== undefined) {
+        stats[t.sourceAccountId].expense += t.amount;
+      } else if (t.type === 'cc_payment' && t.sourceAccountId && stats[t.sourceAccountId] !== undefined) {
+        stats[t.sourceAccountId].expense += t.amount;
+      }
+    });
+    return stats;
+  }, [filteredTransactions, accounts]);
+
   const totalInitialBalance = useMemo(() => Object.values(displayBalances).reduce((sum, val) => sum + val, 0), [displayBalances]);
   // incomes that didn't go to any specific account
   const totalIncomeAllTime = useMemo(() => transactions.filter(t => t.type === 'income' && (!t.targetAccountId || !accounts.find(a => a.id === t.targetAccountId))).reduce((sum, t) => sum + t.amount, 0), [transactions, accounts]);
@@ -891,16 +907,21 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
                       </span>
                     )}
                   </div>
-                  {/* ต้นเดือน → ปัจจุบัน */}
-                  <div className="border-t border-slate-700/50 pt-1.5 flex justify-between items-end">
-                    <div className="text-[10px]">
-                      <div className="text-muted">ต้นเดือน</div>
-                      <div className="font-medium text-gray-300">฿{formatMoney(monthlyAccountBalances.start[acc.id] || 0)}</div>
+                  {/* รายรับ / รายจ่าย */}
+                  <div className="border-t border-slate-700/50 pt-1.5 flex justify-between items-end gap-1">
+                    <div className="text-[10px] flex-1">
+                      <div className="text-muted">รายรับ</div>
+                      <div className="font-semibold text-green-400">+฿{formatMoney(accountMonthlyStats[acc.id]?.income || 0)}</div>
                     </div>
-                    <div className="text-[10px] text-right">
-                      <div className="text-muted">ปัจจุบัน</div>
-                      <div className="font-bold text-blue-400">฿{formatMoney(monthlyAccountBalances.end[acc.id] || 0)}</div>
+                    <div className="text-[10px] flex-1 text-right">
+                      <div className="text-muted">รายจ่าย</div>
+                      <div className="font-semibold text-red-400">-฿{formatMoney(accountMonthlyStats[acc.id]?.expense || 0)}</div>
                     </div>
+                  </div>
+                  {/* ต้นเดือน → คงเหลือ */}
+                  <div className="flex justify-between items-end pt-1">
+                    <div className="text-[9px] text-muted">ต้น: ฿{formatMoney(monthlyAccountBalances.start[acc.id] || 0)}</div>
+                    <div className="text-[9px] font-bold text-blue-400">คงเหลือ: ฿{formatMoney(monthlyAccountBalances.end[acc.id] || 0)}</div>
                   </div>
                 </div>
               ))}
