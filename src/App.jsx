@@ -877,54 +877,32 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
           </div>
         </div>
           {!collapsedSections['accounts'] && (
-            <div className="grid grid-cols-3 gap-2 w-full">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '8px', width: '100%' }}>
               {accounts.map(acc => (
-                <div key={acc.id} className="glass-card flex flex-col min-w-0 text-left" style={{ padding: '10px' }}>
-                  {/* ชื่อบัญชี + ลบ */}
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-xs font-semibold truncate cursor-pointer hover:text-blue-400 transition-colors flex-1 mr-1"
-                      onClick={() => editAccountName(acc.id, acc.name)} title="แตะเพื่อแก้ไขชื่อ">
+                <div key={acc.id} className="glass-card" style={{ padding: '8px 10px', minWidth: 0, textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '2px', borderRadius: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '4px' }}>
+                    <span onClick={() => editAccountName(acc.id, acc.name)} title="แตะเพื่อแก้ไขชื่อ"
+                      style={{ fontSize: '12px', fontWeight: 600, cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
                       {acc.name}
                     </span>
                     <button onClick={() => deleteAccount(acc.id)}
-                      className="text-gray-600 hover:text-red-400 transition-colors text-sm leading-none h-5 w-5 flex items-center justify-center shrink-0 bg-transparent border-none shadow-none p-0">×</button>
+                      style={{ background: 'transparent', border: 'none', boxShadow: 'none', padding: 0, color: '#6b7280', fontSize: '12px', lineHeight: 1, cursor: 'pointer', flexShrink: 0 }}>×</button>
                   </div>
-                  {/* ยอดตั้งต้น */}
-                  <div className="text-[10px] text-muted flex items-center justify-between mb-1.5">
-                    <span>ตั้งต้น:</span>
-                    {editingAccountId === acc.id ? (
-                      <div className="flex items-center gap-1">
-                        <input type="number" value={tempAccountVal}
-                          onChange={e => setTempAccountVal(e.target.value)}
-                          onKeyDown={e => { if(e.key === 'Enter') saveBalance(acc.id); }}
-                          className="w-16 h-5 bg-slate-900 border border-blue-500 rounded px-1 text-right text-xs font-bold"
-                          style={{ boxShadow: 'none' }} autoFocus />
-                        <button onClick={() => saveBalance(acc.id)}
-                          className="text-white bg-blue-600 hover:bg-blue-500 text-[9px] px-1.5 h-5 rounded font-bold">✓</button>
-                      </div>
-                    ) : (
-                      <span className="cursor-pointer hover:text-blue-400 transition-colors font-medium"
-                        onClick={() => handleEditBalance(acc)} title="แตะเพื่อแก้ไข">
-                        ฿{formatMoney(acc.balance || 0)} ✎
-                      </span>
-                    )}
-                  </div>
-                  {/* รายรับ / รายจ่าย */}
-                  <div className="border-t border-slate-700/50 pt-1.5 flex flex-col gap-0.5">
-                    <div className="text-[10px] flex justify-between gap-1">
-                      <span className="text-muted">รับ</span>
-                      <span className="font-semibold text-green-400 truncate">+฿{formatMoney(accountMonthlyStats[acc.id]?.income || 0)}</span>
+                  {editingAccountId === acc.id ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <input type="number" value={tempAccountVal}
+                        onChange={e => setTempAccountVal(e.target.value)}
+                        onKeyDown={e => { if(e.key === 'Enter') saveBalance(acc.id); }}
+                        style={{ width: '100%', minWidth: 0, height: '22px', fontSize: '12px', padding: '0 4px', boxShadow: 'none' }} autoFocus />
+                      <button onClick={() => saveBalance(acc.id)}
+                        style={{ fontSize: '11px', padding: '0 6px', height: '22px', flexShrink: 0 }}>✓</button>
                     </div>
-                    <div className="text-[10px] flex justify-between gap-1">
-                      <span className="text-muted">จ่าย</span>
-                      <span className="font-semibold text-red-400 truncate">-฿{formatMoney(accountMonthlyStats[acc.id]?.expense || 0)}</span>
+                  ) : (
+                    <div onClick={() => handleEditBalance(acc)} title="แตะเพื่อแก้ไขยอดตั้งต้น"
+                      style={{ fontSize: '14px', fontWeight: 700, color: '#60a5fa', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      ฿{formatMoney(monthlyAccountBalances.end[acc.id] || 0)}
                     </div>
-                  </div>
-                  {/* ต้นเดือน → คงเหลือ */}
-                  <div className="flex flex-col pt-1 mt-auto">
-                    <div className="text-[9px] text-muted truncate">ต้น: ฿{formatMoney(monthlyAccountBalances.start[acc.id] || 0)}</div>
-                    <div className="text-xs font-bold text-blue-400 truncate">฿{formatMoney(monthlyAccountBalances.end[acc.id] || 0)}</div>
-                  </div>
+                  )}
                 </div>
               ))}
             </div>
