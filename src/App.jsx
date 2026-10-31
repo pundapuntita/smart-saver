@@ -77,6 +77,7 @@ function SmartSaverApp({ profileName = 'ปัณด้า' }) {
   const [memo, setMemo] = useState('');
   const [category, setCategory] = useState('อื่นๆ');
   const [expenseType, setExpenseType] = useState('normal'); // 'normal' | 'other'
+  const [incomeType, setIncomeType] = useState('normal'); // 'normal' | 'refund'
   
   const [dateStr, setDateStr] = useState(() => {
     const tzOffset = (new Date()).getTimezoneOffset() * 60000;
@@ -283,6 +284,8 @@ function SmartSaverApp({ profileName = 'ปัณด้า' }) {
     if (historyFilter === 'all') return historyTransactions;
     return historyTransactions.filter(tx => {
       if (historyFilter === 'income') return tx.type === 'income';
+      if (historyFilter === 'income_normal') return tx.type === 'income' && (!tx.incomeType || tx.incomeType === 'normal');
+      if (historyFilter === 'income_refund') return tx.type === 'income' && tx.incomeType === 'refund';
       if (historyFilter === 'expense_normal') return tx.type === 'expense' && (!tx.expenseType || tx.expenseType === 'normal');
       if (historyFilter === 'expense_other') return tx.type === 'expense' && tx.expenseType === 'other';
       if (historyFilter === 'expense_cash') return tx.type === 'expense' && tx.paymentMethod !== 'บัตรเครดิต' && tx.paymentMethod !== 'ช้อปปี้';
@@ -392,6 +395,8 @@ function SmartSaverApp({ profileName = 'ปัณด้า' }) {
   const currentShopeeDebt = useMemo(() => shopeeExpenseAllTime - shopeePaymentAllTime, [shopeeExpenseAllTime, shopeePaymentAllTime]);
 
   const monthIncome = useMemo(() => filteredTransactions.filter(t => t.type === 'income' && !t.projectId).reduce((sum, t) => sum + t.amount, 0), [filteredTransactions]);
+  const monthNormalIncome = useMemo(() => filteredTransactions.filter(t => t.type === 'income' && !t.projectId && (!t.incomeType || t.incomeType === 'normal')).reduce((sum, t) => sum + t.amount, 0), [filteredTransactions]);
+  const monthRefundIncome = useMemo(() => filteredTransactions.filter(t => t.type === 'income' && !t.projectId && t.incomeType === 'refund').reduce((sum, t) => sum + t.amount, 0), [filteredTransactions]);
   const monthNormalExpense = useMemo(() => filteredTransactions.filter(t => t.type === 'expense' && !t.projectId && (!t.expenseType || t.expenseType === 'normal')).reduce((sum, t) => sum + t.amount, 0), [filteredTransactions]);
   const monthOtherExpense = useMemo(() => filteredTransactions.filter(t => t.type === 'expense' && !t.projectId && t.expenseType === 'other').reduce((sum, t) => sum + t.amount, 0), [filteredTransactions]);
   const monthExpense = useMemo(() => filteredTransactions.filter(t => t.type === 'expense' && !t.projectId).reduce((sum, t) => sum + t.amount, 0), [filteredTransactions]);
@@ -507,6 +512,7 @@ function SmartSaverApp({ profileName = 'ปัณด้า' }) {
     setSelectedSourceAccountId(tx.sourceAccountId || '');
     setSelectedTargetAccountId(tx.type === 'transfer' ? (tx.targetAccountId || '') : '');
     setExpenseType(tx.expenseType || 'normal');
+    setIncomeType(tx.incomeType || 'normal');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -524,7 +530,8 @@ function SmartSaverApp({ profileName = 'ปัณด้า' }) {
       projectId: selectedProjectId || null,
       targetAccountId: isIncome ? (selectedIncomeAccountId || null) : (type === 'transfer' ? (selectedTargetAccountId || null) : null),
       sourceAccountId: type === 'transfer' ? (selectedSourceAccountId || null) : ((type === 'expense' && paymentMethod !== 'บัตรเครดิต' && paymentMethod !== 'ช้อปปี้') || type === 'cc_payment' ? (selectedSourceAccountId || null) : null),
-      expenseType: type === 'expense' ? (expenseType || 'normal') : null
+      expenseType: type === 'expense' ? (expenseType || 'normal') : null,
+      incomeType: isIncome ? (incomeType || 'normal') : null
     };
     
     if (editingId) {
@@ -533,7 +540,7 @@ function SmartSaverApp({ profileName = 'ปัณด้า' }) {
     } else {
       setTransactions(prev => [newTx, ...prev]);
     }
-    setAmount(''); setMemo(''); setExpenseType('normal');
+    setAmount(''); setMemo(''); setExpenseType('normal'); setIncomeType('normal');
   };
 
   const deleteTransaction = (id) => {
@@ -647,7 +654,9 @@ function SmartSaverApp({ profileName = 'ปัณด้า' }) {
 
     const rows = [
       [`สรุปภาพรวม (รอบบิล ${viewMonth})`],
-      ['รายรับรวมปกติ', monthIncome],
+      ['รายรับปกติ (เงินเดือน/รายได้)', monthNormalIncome],
+      ['เงินโอนคืน (คนอื่นโอนคืน)', monthRefundIncome],
+      ['รายรับรวมทั้งหมด', monthIncome],
       ['รายจ่ายปกติ (จากเงินเดือน)', monthNormalExpense],
       ['รายจ่ายอื่นๆ (ไม่ได้เอาเงินเดือนจ่าย)', monthOtherExpense],
       ['รายจ่ายรวมทั้งหมด', monthExpense],
@@ -886,12 +895,12 @@ function SmartSaverApp({ profileName = 'ปัณด้า' }) {
         </div>
       </section>
 
-      <section className="grid grid-cols-1 md:grid-cols-3 print:grid-cols-3 gap-4 md:gap-6 mb-8">
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 print:grid-cols-4 gap-4 md:gap-5 mb-8">
         <div className="glass-card">
           <div className="flex items-center justify-between mb-2 group cursor-pointer" onClick={() => toggleSection('income_card')}>
             <div className="flex items-center gap-2">
               <ArrowUpCircle className="text-green" size={24} />
-              <h3 className="font-medium text-muted text-sm sm:text-base">รายรับ (รอบบิลนี้)</h3>
+              <h3 className="font-medium text-muted text-sm sm:text-base">รายรับปกติ (รอบบิลนี้)</h3>
             </div>
             <button className="text-gray-500 group-hover:text-gray-300 p-1 no-print">
               {collapsedSections['income_card'] ? <ChevronDown size={16}/> : <ChevronUp size={16}/>}
@@ -899,8 +908,26 @@ function SmartSaverApp({ profileName = 'ปัณด้า' }) {
           </div>
           {!collapsedSections['income_card'] && (
             <div>
-              <p className="text-2xl font-bold text-green">฿ {formatMoney(monthIncome)}</p>
-              <div className="text-[11px] text-muted mt-1">เงินเดือน / รายรับรอบบิลนี้</div>
+              <p className="text-2xl font-bold text-green">฿ {formatMoney(monthNormalIncome)}</p>
+              <div className="text-[11px] text-muted mt-1">เงินเดือน / รายได้รอบบิลนี้</div>
+            </div>
+          )}
+        </div>
+
+        <div className="glass-card">
+          <div className="flex items-center justify-between mb-2 group cursor-pointer" onClick={() => toggleSection('refund_income_card')}>
+            <div className="flex items-center gap-2">
+              <ArrowUpCircle className="text-teal-400" size={24} />
+              <h3 className="font-medium text-muted text-sm sm:text-base">เงินโอนคืน (รอบบิลนี้)</h3>
+            </div>
+            <button className="text-gray-500 group-hover:text-gray-300 p-1 no-print">
+              {collapsedSections['refund_income_card'] ? <ChevronDown size={16}/> : <ChevronUp size={16}/>}
+            </button>
+          </div>
+          {!collapsedSections['refund_income_card'] && (
+            <div>
+              <p className="text-2xl font-bold text-teal-400">฿ {formatMoney(monthRefundIncome)}</p>
+              <div className="text-[11px] text-muted mt-1">คนอื่นโอนคืน / เงินคืน</div>
             </div>
           )}
         </div>
@@ -919,7 +946,7 @@ function SmartSaverApp({ profileName = 'ปัณด้า' }) {
             <div>
               <p className="text-2xl font-bold text-red">฿ {formatMoney(monthNormalExpense)}</p>
               <div className="text-[11px] text-muted mt-1">
-                จากเงินเดือน {monthIncome > 0 && <span className="text-emerald-400 font-medium">(เหลือ ฿ {formatMoney(monthIncome - monthNormalExpense)})</span>}
+                จากเงินเดือน {monthNormalIncome > 0 && <span className="text-emerald-400 font-medium">(เหลือ ฿ {formatMoney(monthNormalIncome - monthNormalExpense)})</span>}
               </div>
             </div>
           )}
@@ -979,11 +1006,52 @@ function SmartSaverApp({ profileName = 'ปัณด้า' }) {
 
               <div>
                 <label>รายละเอียด</label>
-                <input type="text" placeholder={type === 'expense' ? 'เช่น เติมน้ำมัน...' : type === 'cc_payment' ? 'เช่น จ่ายบิลบัตรเครดิตรอบเดือน...' : type === 'transfer' ? 'เช่น โอนเงินเข้าออมทรัพย์...' : 'เช่น เงินเดือน...'} value={memo} onChange={e => setMemo(e.target.value)} />
+                <input type="text" placeholder={type === 'expense' ? 'เช่น เติมน้ำมัน...' : type === 'cc_payment' ? 'เช่น จ่ายบิลบัตรเครดิตรอบเดือน...' : type === 'transfer' ? 'เช่น โอนเงินเข้าออมทรัพย์...' : (incomeType === 'refund' ? 'เช่น เพื่อนโอนค่าข้าวคืน...' : 'เช่น เงินเดือน...')} value={memo} onChange={e => setMemo(e.target.value)} />
               </div>
 
               {type !== 'cc_payment' && type !== 'transfer' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {type === 'income' && (
+                    <div className="md:col-span-2">
+                      <label className="text-sm font-medium text-gray-300 mb-1.5 flex items-center justify-between">
+                        <span>ประเภทรายรับ</span>
+                        <span className="text-[11px] text-muted">
+                          {incomeType === 'normal' ? '✓ เงินเดือน / รายได้รอบบิลนี้' : '✓ คนอื่นโอนคืน / เงินคืน'}
+                        </span>
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setIncomeType('normal')}
+                          className={`py-2 px-3 rounded-xl text-xs sm:text-sm font-medium transition-all border flex items-center justify-center gap-2 ${
+                            incomeType === 'normal'
+                              ? 'bg-green-500/20 border-green-500 text-green-400 font-bold shadow-[0_0_12px_rgba(16,185,129,0.3)]'
+                              : 'bg-slate-800/60 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-gray-200'
+                          }`}
+                        >
+                          <span className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${incomeType === 'normal' ? 'border-green-400' : 'border-gray-500'}`}>
+                            {incomeType === 'normal' && <span className="w-2 h-2 rounded-full bg-green-400"></span>}
+                          </span>
+                          <span>รายรับปกติ (default)</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIncomeType('refund')}
+                          className={`py-2 px-3 rounded-xl text-xs sm:text-sm font-medium transition-all border flex items-center justify-center gap-2 ${
+                            incomeType === 'refund'
+                              ? 'bg-teal-500/20 border-teal-500 text-teal-400 font-bold shadow-[0_0_12px_rgba(20,184,166,0.3)]'
+                              : 'bg-slate-800/60 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-gray-200'
+                          }`}
+                        >
+                          <span className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${incomeType === 'refund' ? 'border-teal-400' : 'border-gray-500'}`}>
+                            {incomeType === 'refund' && <span className="w-2 h-2 rounded-full bg-teal-400"></span>}
+                          </span>
+                          <span>เงินโอนคืน</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   <div>
                     <label className="flex items-center justify-between">
                        {type === 'income' ? 'หมวดหมู่รายรับ' : 'หมวดหมู่ (ปกติ)'}
@@ -1121,7 +1189,7 @@ function SmartSaverApp({ profileName = 'ปัณด้า' }) {
                 {editingId && (
                    <button type="button" className="btn-secondary flex-1" onClick={() => {
                       setEditingId(null);
-                      setAmount(''); setMemo(''); setExpenseType('normal');
+                      setAmount(''); setMemo(''); setExpenseType('normal'); setIncomeType('normal');
                    }}>
                       ยกเลิกแก้ไข
                    </button>
@@ -1149,7 +1217,9 @@ function SmartSaverApp({ profileName = 'ปัณด้า' }) {
                >
                  <optgroup label="ประเภทรายการ">
                    <option value="all">รวมทุกรายการ</option>
-                   <option value="income">รายรับ (+)</option>
+                   <option value="income">รายรับรวมทั้งหมด (+)</option>
+                   <option value="income_normal">รายรับปกติ (เงินเดือน/รายได้)</option>
+                   <option value="income_refund">เงินโอนคืน (คนอื่นโอนคืน)</option>
                    <option value="expense_normal">รายจ่ายปกติ (จากเงินเดือน)</option>
                    <option value="expense_other">รายจ่ายอื่นๆ (ไม่ได้เอาเงินเดือนจ่าย)</option>
                    <option value="expense_cash">จ่ายปกติ (เงินสด/โอน)</option>
@@ -1185,6 +1255,11 @@ function SmartSaverApp({ profileName = 'ปัณด้า' }) {
                         </span>
                         {tx.type === 'income' && tx.category && (
                           <span className="text-[11px] text-green border border-green-500/30 px-1.5 py-0.5 rounded print:text-green-700 whitespace-nowrap">{tx.category}</span>
+                        )}
+                        {tx.type === 'income' && tx.incomeType === 'refund' && (
+                          <span className="text-[11px] text-teal-400 border border-teal-400/40 bg-teal-400/10 px-1.5 py-0.5 rounded print:text-teal-700 whitespace-nowrap font-medium">
+                            เงินโอนคืน
+                          </span>
                         )}
                         {tx.type === 'expense' && !tx.projectId && (
                           <span className="text-[11px] text-blue-400 border border-blue-400/30 px-1.5 py-0.5 rounded print:text-blue-700 whitespace-nowrap">{tx.category}</span>
