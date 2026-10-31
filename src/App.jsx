@@ -46,17 +46,28 @@ const DEFAULT_INCOME_CATEGORIES = ['เงินเดือน', 'ฟรีแ�
 
 const PAYMENT_METHODS = ['เงินสด', 'โอน', 'บัตรเครดิต', 'ช้อปปี้'];
 
-function SmartSaverApp({ profileName }) {
+function SmartSaverApp({ profileName = 'ปัณด้า' }) {
   const [editingId, setEditingId] = useState(null);
   const [editingAccountId, setEditingAccountId] = useState(null);
   const [tempAccountVal, setTempAccountVal] = useState("");
   const [collapsedSections, setCollapsedSections] = useState({});
   const toggleSection = (sec) => setCollapsedSections(prev => ({...prev, [sec]: !prev[sec]}));
-  const [accounts, setAccounts] = useState([{ id: '1', name: 'บัญชีหลัก', balance: 0 }]);
-  const [transactions, setTransactions] = useState([]);
-  const [budgets, setBudgets] = useState(DEFAULT_BUDGETS);
-  const [incomeCategories, setIncomeCategories] = useState(DEFAULT_INCOME_CATEGORIES);
-  const [projects, setProjects] = useState([]);
+  
+  // Eagerly load local storage data for instant display and fallback
+  const initData = useMemo(() => {
+    let savedData = localStorage.getItem(`smartSaverData_${profileName}`);
+    if (!savedData && profileName === 'ปัณด้า') savedData = localStorage.getItem('smartSaverData');
+    if (savedData) {
+      try { return JSON.parse(savedData); } catch (e) { return null; }
+    }
+    return null;
+  }, [profileName]);
+
+  const [accounts, setAccounts] = useState(initData?.accounts || [{ id: '1', name: 'บัญชีหลัก', balance: 0 }]);
+  const [transactions, setTransactions] = useState(initData?.transactions || []);
+  const [budgets, setBudgets] = useState(initData?.budgets && Object.keys(initData.budgets).length > 0 ? initData.budgets : DEFAULT_BUDGETS);
+  const [incomeCategories, setIncomeCategories] = useState(initData?.incomeCategories && initData.incomeCategories.length > 0 ? initData.incomeCategories : DEFAULT_INCOME_CATEGORIES);
+  const [projects, setProjects] = useState(initData?.projects || []);
   
   const [syncStatus, setSyncStatus] = useState('loading'); // 'loading', 'synced', 'error', 'offline'
   const [syncError, setSyncError] = useState(null);
@@ -65,6 +76,7 @@ function SmartSaverApp({ profileName }) {
   const [amount, setAmount] = useState('');
   const [memo, setMemo] = useState('');
   const [category, setCategory] = useState('อื่นๆ');
+  const [expenseType, setExpenseType] = useState('normal'); // 'normal' | 'other'
   
   const [dateStr, setDateStr] = useState(() => {
     const tzOffset = (new Date()).getTimezoneOffset() * 60000;
@@ -125,8 +137,14 @@ function SmartSaverApp({ profileName }) {
         const remoteTxCount = remoteData.transactions ? remoteData.transactions.length : 0;
         const localTxCount = localDataSnapshot && localDataSnapshot.transactions ? localDataSnapshot.transactions.length : 0;
 
+        const remoteTime = remoteData.lastUpdated || 0;
+        const localTime = localDataSnapshot && localDataSnapshot.lastUpdated ? localDataSnapshot.lastUpdated : 0;
+
         if (remoteTxCount === 0 && localTxCount > 0) {
            console.warn("Safeguard triggered: Remote is empty but local has data. Prioritizing local data.");
+           shouldMigrateLocal = true;
+        } else if (localTime > remoteTime) {
+           console.warn("Safeguard triggered: Local data is newer than remote. Prioritizing local data.");
            shouldMigrateLocal = true;
         } else {
            parsed = remoteData;
@@ -156,6 +174,23 @@ function SmartSaverApp({ profileName }) {
       console.error("Firebase sync error:", error);
       setSyncStatus('error');
       setSyncError(error.message);
+      
+      // Fallback: If Firebase fails (e.g. permission denied), ensure we use local data
+      let savedData = localStorage.getItem(`smartSaverData_${profileName}`);
+      if (!savedData && profileName === 'ปัณด้า') {
+        savedData = localStorage.getItem('smartSaverData');
+      }
+      if (savedData) {
+        try {
+          const parsed = JSON.parse(savedData);
+          if (parsed.accounts && Array.isArray(parsed.accounts)) setAccounts(parsed.accounts);
+          setTransactions(parsed.transactions || []);
+          if (parsed.budgets) setBudgets(Object.keys(parsed.budgets).length > 0 ? parsed.budgets : DEFAULT_BUDGETS);
+          if (parsed.incomeCategories) setIncomeCategories(parsed.incomeCategories.length > 0 ? parsed.incomeCategories : DEFAULT_INCOME_CATEGORIES);
+          if (parsed.projects) setProjects(parsed.projects);
+        } catch (e) {}
+      }
+
       // Prevent writing empty data to Firebase if read fails
       blockSyncRef.current = true; 
       setDataLoaded(true);
@@ -173,7 +208,7 @@ function SmartSaverApp({ profileName }) {
        return;
     }
 
-    const currentData = { accounts, transactions, budgets, incomeCategories, projects };
+    const currentData = { accounts, transactions, budgets, incomeCategories, projects, lastUpdated: Date.now() };
     // Keep local backup working so it's resilient offline
     localStorage.setItem(`smartSaverData_${profileName}`, JSON.stringify(currentData));
 
@@ -248,6 +283,8 @@ function SmartSaverApp({ profileName }) {
     if (historyFilter === 'all') return historyTransactions;
     return historyTransactions.filter(tx => {
       if (historyFilter === 'income') return tx.type === 'income';
+      if (historyFilter === 'expense_normal') return tx.type === 'expense' && (!tx.expenseType || tx.expenseType === 'normal');
+      if (historyFilter === 'expense_other') return tx.type === 'expense' && tx.expenseType === 'other';
       if (historyFilter === 'expense_cash') return tx.type === 'expense' && tx.paymentMethod !== 'บัตรเครดิต' && tx.paymentMethod !== 'ช้อปปี้';
       if (historyFilter === 'credit_card') return (tx.type === 'expense' && tx.paymentMethod === 'บัตรเครดิต') || (tx.type === 'cc_payment' && tx.paymentMethod === 'บัตรเครดิต');
       if (historyFilter === 'shopee') return (tx.type === 'expense' && tx.paymentMethod === 'ช้อปปี้') || (tx.type === 'cc_payment' && tx.paymentMethod === 'ช้อปปี้');
@@ -355,6 +392,8 @@ function SmartSaverApp({ profileName }) {
   const currentShopeeDebt = useMemo(() => shopeeExpenseAllTime - shopeePaymentAllTime, [shopeeExpenseAllTime, shopeePaymentAllTime]);
 
   const monthIncome = useMemo(() => filteredTransactions.filter(t => t.type === 'income' && !t.projectId).reduce((sum, t) => sum + t.amount, 0), [filteredTransactions]);
+  const monthNormalExpense = useMemo(() => filteredTransactions.filter(t => t.type === 'expense' && !t.projectId && (!t.expenseType || t.expenseType === 'normal')).reduce((sum, t) => sum + t.amount, 0), [filteredTransactions]);
+  const monthOtherExpense = useMemo(() => filteredTransactions.filter(t => t.type === 'expense' && !t.projectId && t.expenseType === 'other').reduce((sum, t) => sum + t.amount, 0), [filteredTransactions]);
   const monthExpense = useMemo(() => filteredTransactions.filter(t => t.type === 'expense' && !t.projectId).reduce((sum, t) => sum + t.amount, 0), [filteredTransactions]);
   const calendarMonthExpense = useMemo(() => historyTransactions.filter(t => t.type === 'expense' && !t.projectId).reduce((sum, t) => sum + t.amount, 0), [historyTransactions]);
 
@@ -467,6 +506,7 @@ function SmartSaverApp({ profileName }) {
     setSelectedIncomeAccountId(tx.targetAccountId || '');
     setSelectedSourceAccountId(tx.sourceAccountId || '');
     setSelectedTargetAccountId(tx.type === 'transfer' ? (tx.targetAccountId || '') : '');
+    setExpenseType(tx.expenseType || 'normal');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -483,7 +523,8 @@ function SmartSaverApp({ profileName }) {
       date: new Date(dateStr).toISOString(),
       projectId: selectedProjectId || null,
       targetAccountId: isIncome ? (selectedIncomeAccountId || null) : (type === 'transfer' ? (selectedTargetAccountId || null) : null),
-      sourceAccountId: type === 'transfer' ? (selectedSourceAccountId || null) : ((type === 'expense' && paymentMethod !== 'บัตรเครดิต' && paymentMethod !== 'ช้อปปี้') || type === 'cc_payment' ? (selectedSourceAccountId || null) : null)
+      sourceAccountId: type === 'transfer' ? (selectedSourceAccountId || null) : ((type === 'expense' && paymentMethod !== 'บัตรเครดิต' && paymentMethod !== 'ช้อปปี้') || type === 'cc_payment' ? (selectedSourceAccountId || null) : null),
+      expenseType: type === 'expense' ? (expenseType || 'normal') : null
     };
     
     if (editingId) {
@@ -492,7 +533,7 @@ function SmartSaverApp({ profileName }) {
     } else {
       setTransactions(prev => [newTx, ...prev]);
     }
-    setAmount(''); setMemo('');
+    setAmount(''); setMemo(''); setExpenseType('normal');
   };
 
   const deleteTransaction = (id) => {
@@ -607,7 +648,9 @@ function SmartSaverApp({ profileName }) {
     const rows = [
       [`สรุปภาพรวม (รอบบิล ${viewMonth})`],
       ['รายรับรวมปกติ', monthIncome],
-      ['รายจ่ายรวมปกติ', monthExpense],
+      ['รายจ่ายปกติ (จากเงินเดือน)', monthNormalExpense],
+      ['รายจ่ายอื่นๆ (ไม่ได้เอาเงินเดือนจ่าย)', monthOtherExpense],
+      ['รายจ่ายรวมทั้งหมด', monthExpense],
       ['* ยอดเหล่านี้ไม่รวมโปรเจคพิเศษ'],
       [],
       ['สรุปรายจ่ายแต่ละหมวดหมู่'],
@@ -843,33 +886,62 @@ function SmartSaverApp({ profileName }) {
         </div>
       </section>
 
-      <section className="dashboard-grid-3 grid gap-6 mb-8" style={{ gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)' }}>
+      <section className="grid grid-cols-1 md:grid-cols-3 print:grid-cols-3 gap-4 md:gap-6 mb-8">
         <div className="glass-card">
           <div className="flex items-center justify-between mb-2 group cursor-pointer" onClick={() => toggleSection('income_card')}>
             <div className="flex items-center gap-2">
               <ArrowUpCircle className="text-green" size={24} />
-              <h3 className="font-medium text-muted">รายรับ (รอบบิลนี้)</h3>
+              <h3 className="font-medium text-muted text-sm sm:text-base">รายรับ (รอบบิลนี้)</h3>
             </div>
             <button className="text-gray-500 group-hover:text-gray-300 p-1 no-print">
               {collapsedSections['income_card'] ? <ChevronDown size={16}/> : <ChevronUp size={16}/>}
             </button>
           </div>
           {!collapsedSections['income_card'] && (
-            <p className="text-2xl font-bold text-green">฿ {formatMoney(monthIncome)}</p>
+            <div>
+              <p className="text-2xl font-bold text-green">฿ {formatMoney(monthIncome)}</p>
+              <div className="text-[11px] text-muted mt-1">เงินเดือน / รายรับรอบบิลนี้</div>
+            </div>
           )}
         </div>
+
         <div className="glass-card">
           <div className="flex items-center justify-between mb-2 group cursor-pointer" onClick={() => toggleSection('expense_card')}>
             <div className="flex items-center gap-2">
               <ArrowDownCircle className="text-red" size={24} />
-              <h3 className="font-medium text-muted">รายจ่ายปกติ (รอบบิลนี้)</h3>
+              <h3 className="font-medium text-muted text-sm sm:text-base">รายจ่ายปกติ (รอบบิลนี้)</h3>
             </div>
             <button className="text-gray-500 group-hover:text-gray-300 p-1 no-print">
               {collapsedSections['expense_card'] ? <ChevronDown size={16}/> : <ChevronUp size={16}/>}
             </button>
           </div>
           {!collapsedSections['expense_card'] && (
-            <p className="text-2xl font-bold text-red">฿ {formatMoney(monthExpense)}</p>
+            <div>
+              <p className="text-2xl font-bold text-red">฿ {formatMoney(monthNormalExpense)}</p>
+              <div className="text-[11px] text-muted mt-1">
+                จากเงินเดือน {monthIncome > 0 && <span className="text-emerald-400 font-medium">(เหลือ ฿ {formatMoney(monthIncome - monthNormalExpense)})</span>}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="glass-card">
+          <div className="flex items-center justify-between mb-2 group cursor-pointer" onClick={() => toggleSection('other_expense_card')}>
+            <div className="flex items-center gap-2">
+              <ArrowDownCircle className="text-amber-500" size={24} />
+              <h3 className="font-medium text-muted text-sm sm:text-base">รายจ่ายอื่นๆ (รอบบิลนี้)</h3>
+            </div>
+            <button className="text-gray-500 group-hover:text-gray-300 p-1 no-print">
+              {collapsedSections['other_expense_card'] ? <ChevronDown size={16}/> : <ChevronUp size={16}/>}
+            </button>
+          </div>
+          {!collapsedSections['other_expense_card'] && (
+            <div>
+              <p className="text-2xl font-bold text-amber-500">฿ {formatMoney(monthOtherExpense)}</p>
+              <div className="text-[11px] text-muted mt-1">
+                ไม่ได้เอาเงินเดือนจ่าย
+              </div>
+            </div>
           )}
         </div>
       </section>
@@ -934,6 +1006,45 @@ function SmartSaverApp({ profileName }) {
                   )}
                   {type === 'expense' && (
                     <>
+                      <div className="md:col-span-2">
+                        <label className="text-sm font-medium text-gray-300 mb-1.5 flex items-center justify-between">
+                          <span>ประเภทรายจ่าย</span>
+                          <span className="text-[11px] text-muted">
+                            {expenseType === 'normal' ? '✓ จ่ายจากเงินเดือนรอบบิลนี้' : '✓ ไม่ได้เอาเงินเดือนจ่าย'}
+                          </span>
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setExpenseType('normal')}
+                            className={`py-2 px-3 rounded-xl text-xs sm:text-sm font-medium transition-all border flex items-center justify-center gap-2 ${
+                              expenseType === 'normal'
+                                ? 'bg-red-500/20 border-red-500 text-red-400 font-bold shadow-[0_0_12px_rgba(239,68,68,0.3)]'
+                                : 'bg-slate-800/60 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-gray-200'
+                            }`}
+                          >
+                            <span className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${expenseType === 'normal' ? 'border-red-400' : 'border-gray-500'}`}>
+                              {expenseType === 'normal' && <span className="w-2 h-2 rounded-full bg-red-400"></span>}
+                            </span>
+                            <span>รายจ่ายปกติ (default)</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setExpenseType('other')}
+                            className={`py-2 px-3 rounded-xl text-xs sm:text-sm font-medium transition-all border flex items-center justify-center gap-2 ${
+                              expenseType === 'other'
+                                ? 'bg-amber-500/20 border-amber-500 text-amber-400 font-bold shadow-[0_0_12px_rgba(245,158,11,0.3)]'
+                                : 'bg-slate-800/60 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-gray-200'
+                            }`}
+                          >
+                            <span className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${expenseType === 'other' ? 'border-amber-400' : 'border-gray-500'}`}>
+                              {expenseType === 'other' && <span className="w-2 h-2 rounded-full bg-amber-400"></span>}
+                            </span>
+                            <span>รายจ่ายอื่นๆ</span>
+                          </button>
+                        </div>
+                      </div>
+
                       <div>
                         <label>ผูกกับโปรเจคพิเศษ (แยกงบอิสระ)</label>
                         <select value={selectedProjectId} onChange={e => setSelectedProjectId(e.target.value)}>
@@ -1010,7 +1121,7 @@ function SmartSaverApp({ profileName }) {
                 {editingId && (
                    <button type="button" className="btn-secondary flex-1" onClick={() => {
                       setEditingId(null);
-                      setAmount(''); setMemo('');
+                      setAmount(''); setMemo(''); setExpenseType('normal');
                    }}>
                       ยกเลิกแก้ไข
                    </button>
@@ -1039,6 +1150,8 @@ function SmartSaverApp({ profileName }) {
                  <optgroup label="ประเภทรายการ">
                    <option value="all">รวมทุกรายการ</option>
                    <option value="income">รายรับ (+)</option>
+                   <option value="expense_normal">รายจ่ายปกติ (จากเงินเดือน)</option>
+                   <option value="expense_other">รายจ่ายอื่นๆ (ไม่ได้เอาเงินเดือนจ่าย)</option>
                    <option value="expense_cash">จ่ายปกติ (เงินสด/โอน)</option>
                    <option value="credit_card">💳 บัตรเครดิต</option>
                    <option value="shopee">🧡 ช้อปปี้</option>
@@ -1075,6 +1188,11 @@ function SmartSaverApp({ profileName }) {
                         )}
                         {tx.type === 'expense' && !tx.projectId && (
                           <span className="text-[11px] text-blue-400 border border-blue-400/30 px-1.5 py-0.5 rounded print:text-blue-700 whitespace-nowrap">{tx.category}</span>
+                        )}
+                        {tx.type === 'expense' && tx.expenseType === 'other' && (
+                          <span className="text-[11px] text-amber-400 border border-amber-400/40 bg-amber-400/10 px-1.5 py-0.5 rounded print:text-amber-700 whitespace-nowrap font-medium">
+                            รายจ่ายอื่นๆ
+                          </span>
                         )}
                         {tx.type === 'expense' && tx.projectId && (
                            <span className="text-[11px] text-purple-400 border border-purple-400/30 px-1.5 py-0.5 rounded flex items-center gap-1 print:text-purple-700 whitespace-nowrap">
@@ -1414,36 +1532,14 @@ function SmartSaverApp({ profileName }) {
 }
 
 export default function App() {
-  const [profile, setProfile] = useState(() => localStorage.getItem('smartSaverProfile') || 'ปัณด้า');
-
-  const handleProfileChange = (newProfile) => {
-    localStorage.setItem('smartSaverProfile', newProfile);
-    setProfile(newProfile);
-  };
+  useEffect(() => {
+    localStorage.setItem('smartSaverProfile', 'ปัณด้า');
+  }, []);
 
   return (
     <div className="w-full min-h-screen flex flex-col items-center">
-      {/* Profile Switcher placed in normal flow to avoid overlapping header on small phones */}
-      <div className="w-full max-w-[1000px] flex justify-end px-4 pt-4 sm:px-4 sm:pt-6 z-[100] no-print relative">
-        <div className="flex gap-1 sm:gap-2 bg-[#0f172a] p-1 sm:p-1.5 rounded-xl border border-gray-700 shadow-[0_4px_20px_rgba(0,0,0,0.5)]">
-          <button 
-            onClick={() => handleProfileChange('ปัณด้า')}
-            className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${profile === 'ปัณด้า' ? 'bg-pink-600 text-white shadow-[0_0_15px_rgba(219,39,119,0.5)]' : 'bg-transparent text-gray-400 hover:text-white'}`}
-          >
-            👩🏻 ของปัณด้า
-          </button>
-          <button 
-            onClick={() => handleProfileChange('ก้อง')}
-            className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${profile === 'ก้อง' ? 'bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.5)]' : 'bg-transparent text-gray-400 hover:text-white'}`}
-          >
-            👨🏻 ของก้อง
-          </button>
-        </div>
-      </div>
-      
-      {/* Remount entirely when profile changes to sandbox all states perfectly */}
-      <div className="w-full relative sm:mt-[-1rem]">
-        <SmartSaverApp key={profile} profileName={profile} />
+      <div className="w-full relative">
+        <SmartSaverApp profileName="ปัณด้า" />
       </div>
     </div>
   );
