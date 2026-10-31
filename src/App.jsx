@@ -898,17 +898,17 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
 
       {/* Accounts Section — full-width grid of cards */}
       <section className="mb-6 no-print">
-        <div className="flex items-center justify-between mb-3 px-1">
-          <div className="flex items-center gap-2">
-            <Wallet size={20} style={{ color: 'var(--accent-blue)' }} />
-            <h2 className="text-base font-bold">บัญชีเงินต้น</h2>
+        <div className="flex items-center justify-between mb-3 px-1 gap-2">
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Wallet size={18} style={{ color: 'var(--accent-blue)' }} />
+            <h2 className="text-sm sm:text-base font-bold whitespace-nowrap">บัญชีเงินต้น</h2>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted">รวมคงเหลือ</span>
-            <span className="text-base font-bold text-blue-400">฿{formatMoney(Object.values(monthlyAccountBalances.end).reduce((a,b)=>a+b,0))}</span>
-            <button onClick={() => addAccount()} className="text-xs bg-slate-700 hover:bg-slate-600 text-white rounded px-2 py-1 transition-colors">+ เพิ่ม</button>
-            <button onClick={() => toggleSection('accounts')} className="text-gray-500 hover:text-gray-300 p-1 bg-transparent border-none shadow-none">
-              {collapsedSections['accounts'] ? <ChevronDown size={20}/> : <ChevronUp size={20}/>}
+          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 justify-end">
+            <span className="text-[11px] sm:text-xs text-muted whitespace-nowrap hidden sm:inline">รวมคงเหลือ</span>
+            <span className="text-sm sm:text-base font-bold text-blue-400 whitespace-nowrap">฿{formatMoney(Object.values(monthlyAccountBalances.end).reduce((a,b)=>a+b,0))}</span>
+            <button onClick={() => addAccount()} className="text-xs bg-slate-700 hover:bg-slate-600 text-white rounded px-2 py-1 transition-colors shrink-0">+ เพิ่ม</button>
+            <button onClick={() => toggleSection('accounts')} className="text-gray-500 hover:text-gray-300 p-1 bg-transparent border-none shadow-none shrink-0">
+              {collapsedSections['accounts'] ? <ChevronDown size={18}/> : <ChevronUp size={18}/>}
             </button>
           </div>
         </div>
@@ -978,16 +978,20 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
           <div className="flex items-center justify-between mb-1 group cursor-pointer" onClick={() => toggleSection('income_card')}>
             <div className="flex items-center gap-1.5 min-w-0">
               <ArrowUpCircle className="text-green shrink-0" size={18} />
-              <h3 className="font-medium text-muted text-xs sm:text-sm truncate">รายรับปกติ (รอบบิลนี้)</h3>
+              <h3 className="font-medium text-muted text-xs sm:text-sm truncate">
+                รายรับปกติ<span className="hidden sm:inline"> (รอบบิลนี้)</span>
+              </h3>
             </div>
             <button className="text-gray-500 group-hover:text-gray-300 p-0.5 no-print shrink-0">
               {collapsedSections['income_card'] ? <ChevronDown size={14}/> : <ChevronUp size={14}/>}
             </button>
           </div>
           {!collapsedSections['income_card'] && (
-            <div>
-              <p className="text-lg sm:text-xl font-bold text-green">฿ {formatMoney(monthNormalIncome)}</p>
-              <div className="text-[10px] sm:text-[11px] text-muted truncate mt-0.5">เงินเดือน / รายได้รอบบิลนี้</div>
+            <div className="flex flex-col flex-1 justify-between">
+              <div>
+                <p className="text-lg sm:text-xl font-bold text-green">฿ {formatMoney(monthNormalIncome)}</p>
+                <div className="text-[10px] sm:text-[11px] text-muted truncate mt-0.5">เงินเดือน / รายได้รอบบิลนี้</div>
+              </div>
             </div>
           )}
         </div>
@@ -996,16 +1000,20 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
           <div className="flex items-center justify-between mb-1 group cursor-pointer" onClick={() => toggleSection('refund_income_card')}>
             <div className="flex items-center gap-1.5 min-w-0">
               <ArrowUpCircle className="text-teal-400 shrink-0" size={18} />
-              <h3 className="font-medium text-muted text-xs sm:text-sm truncate">เงินโอนคืน (รอบบิลนี้)</h3>
+              <h3 className="font-medium text-muted text-xs sm:text-sm truncate">
+                เงินโอนคืน<span className="hidden sm:inline"> (รอบบิลนี้)</span>
+              </h3>
             </div>
             <button className="text-gray-500 group-hover:text-gray-300 p-0.5 no-print shrink-0">
               {collapsedSections['refund_income_card'] ? <ChevronDown size={14}/> : <ChevronUp size={14}/>}
             </button>
           </div>
           {!collapsedSections['refund_income_card'] && (
-            <div>
-              <p className="text-lg sm:text-xl font-bold text-teal-400">฿ {formatMoney(monthRefundIncome)}</p>
-              <div className="text-[10px] sm:text-[11px] text-muted truncate mt-0.5">คนอื่นโอนคืน / เงินคืน</div>
+            <div className="flex flex-col flex-1 justify-between">
+              <div>
+                <p className="text-lg sm:text-xl font-bold text-teal-400">฿ {formatMoney(monthRefundIncome)}</p>
+                <div className="text-[10px] sm:text-[11px] text-muted truncate mt-0.5">คนอื่นโอนคืน / เงินคืน</div>
+              </div>
             </div>
           )}
         </div>
@@ -1014,17 +1022,21 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
           <div className="flex items-center justify-between mb-1 group cursor-pointer" onClick={() => toggleSection('expense_card')}>
             <div className="flex items-center gap-1.5 min-w-0">
               <ArrowDownCircle className="text-red shrink-0" size={18} />
-              <h3 className="font-medium text-muted text-xs sm:text-sm truncate">รายจ่ายปกติ (รอบบิลนี้)</h3>
+              <h3 className="font-medium text-muted text-xs sm:text-sm truncate">
+                รายจ่ายปกติ<span className="hidden sm:inline"> (รอบบิลนี้)</span>
+              </h3>
             </div>
             <button className="text-gray-500 group-hover:text-gray-300 p-0.5 no-print shrink-0">
               {collapsedSections['expense_card'] ? <ChevronDown size={14}/> : <ChevronUp size={14}/>}
             </button>
           </div>
           {!collapsedSections['expense_card'] && (
-            <div>
-              <p className="text-lg sm:text-xl font-bold text-red">฿ {formatMoney(monthNormalExpense)}</p>
-              <div className="text-[10px] sm:text-[11px] text-muted truncate mt-0.5">
-                จากเงินเดือน {monthNormalIncome > 0 && <span className="text-emerald-400 font-medium">(เหลือ ฿ {formatMoney(monthNormalIncome - monthNormalExpense)})</span>}
+            <div className="flex flex-col flex-1 justify-between">
+              <div>
+                <p className="text-lg sm:text-xl font-bold text-red">฿ {formatMoney(monthNormalExpense)}</p>
+                <div className="text-[10px] sm:text-[11px] text-muted truncate mt-0.5">
+                  จากเงินเดือน {monthNormalIncome > 0 && <span className="text-emerald-400 font-medium">(เหลือ ฿ {formatMoney(monthNormalIncome - monthNormalExpense)})</span>}
+                </div>
               </div>
               <div className="summary-breakdown-box">
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: '6px' }}>
@@ -1048,17 +1060,21 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
           <div className="flex items-center justify-between mb-1 group cursor-pointer" onClick={() => toggleSection('other_expense_card')}>
             <div className="flex items-center gap-1.5 min-w-0">
               <ArrowDownCircle className="text-amber-500 shrink-0" size={18} />
-              <h3 className="font-medium text-muted text-xs sm:text-sm truncate">รายจ่ายอื่นๆ (รอบบิลนี้)</h3>
+              <h3 className="font-medium text-muted text-xs sm:text-sm truncate">
+                รายจ่ายอื่นๆ<span className="hidden sm:inline"> (รอบบิลนี้)</span>
+              </h3>
             </div>
             <button className="text-gray-500 group-hover:text-gray-300 p-0.5 no-print shrink-0">
               {collapsedSections['other_expense_card'] ? <ChevronDown size={14}/> : <ChevronUp size={14}/>}
             </button>
           </div>
           {!collapsedSections['other_expense_card'] && (
-            <div>
-              <p className="text-lg sm:text-xl font-bold text-amber-500">฿ {formatMoney(monthOtherExpense)}</p>
-              <div className="text-[10px] sm:text-[11px] text-muted truncate mt-0.5">
-                ไม่ได้เอาเงินเดือนจ่าย
+            <div className="flex flex-col flex-1 justify-between">
+              <div>
+                <p className="text-lg sm:text-xl font-bold text-amber-500">฿ {formatMoney(monthOtherExpense)}</p>
+                <div className="text-[10px] sm:text-[11px] text-muted truncate mt-0.5">
+                  ไม่ได้เอาเงินเดือนจ่าย
+                </div>
               </div>
               <div className="summary-breakdown-box">
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: '6px' }}>
