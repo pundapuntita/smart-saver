@@ -1494,55 +1494,53 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
             <>
             <p className="text-xs text-muted mb-6 opacity-75 no-print">💡 แตะที่ตัวเลขยอดเงิน / งบ เพื่อแก้ไขเป้าหมาย</p>
 
-            <div className="flex flex-col gap-5">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '10px' }}>
               {CATEGORIES.map(cat => {
                 const spent = categoryExpenses[cat] || 0;
-                const limit = budgets[cat];
-                const percent = Math.min((spent / limit) * 100, 100);
+                const limit = budgets[cat] || 0;
+                const remaining = limit - spent;
+                const percent = limit > 0 ? Math.min((spent / limit) * 100, 100) : (spent > 0 ? 100 : 0);
                 const catPercent = calendarMonthExpense > 0 ? ((spent / calendarMonthExpense) * 100).toFixed(1) : '0';
-                
+
                 let statusColor = 'var(--accent-green)';
                 if (percent > 85) statusColor = 'var(--accent-red)';
                 else if (percent > 65) statusColor = 'var(--accent-orange)';
 
+                const editLimit = () => {
+                  const newLimit = prompt(`ตั้งค่างบประมาณสำหรับ: ${cat}`, limit);
+                  if (newLimit !== null && !isNaN(newLimit) && newLimit !== '') {
+                    setBudgets(prev => ({...prev, [cat]: parseFloat(newLimit)}));
+                  }
+                };
+
+                const rowStyle = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', gap: '4px' };
+
                 return (
-                  <div key={cat} className="w-full">
-                    <div className="flex justify-between items-end mb-1 print:text-black">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-sm">{cat}</span>
-                        {parseFloat(catPercent) > 0 && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold" style={{ backgroundColor: 'rgba(59,130,246,0.15)', color: 'var(--accent-blue)', border: '1px solid rgba(59,130,246,0.3)' }}>{catPercent}%</span>
-                        )}
-                        <button onClick={() => editCategoryName(cat)} className="text-gray-400 hover:text-blue-400 no-print p-0.5 rounded transition-colors" style={{ backgroundColor: 'transparent', boxShadow: 'none', padding: 0 }} title="แก้ไขชื่อหมวด">
-                           <Edit2 size={12} />
-                        </button>
-                      </div>
-                      <div className="text-right flex flex-col items-end">
-                        <span className="text-sm">
-                          <span className="font-bold text-main print:text-black" style={{ color: percent >= 100 ? 'var(--accent-red)' : ''}}>
-                            {formatMoney(spent)}
-                          </span> 
-                          <span className="text-muted text-xs mx-1 print:text-black">/</span>
-                          <span 
-                            className="text-muted text-sm cursor-pointer hover:text-white transition-colors bg-transparent print:bg-transparent print:text-black print:px-0"
-                            onClick={() => {
-                              const newLimit = prompt(`ตั้งค่างบประมาณสำหรับ: ${cat}`, limit);
-                              if (newLimit !== null && !isNaN(newLimit) && newLimit !== '') {
-                                setBudgets(prev => ({...prev, [cat]: parseFloat(newLimit)}));
-                              }
-                            }}
-                          >
-                            {formatMoney(limit)} <span className="no-print">✎</span>
-                          </span>
-                        </span>
-                      </div>
+                  <div key={cat} style={{ background: 'rgba(30,41,59,0.5)', border: `1px solid ${percent >= 100 ? 'rgba(239,68,68,0.5)' : 'rgba(71,85,105,0.5)'}`, borderRadius: '12px', padding: '10px 12px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, marginBottom: '2px' }}>
+                      <span style={{ fontWeight: 600, fontSize: '13px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{cat}</span>
+                      {parseFloat(catPercent) > 0 && (
+                        <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '999px', fontWeight: 700, backgroundColor: 'rgba(59,130,246,0.15)', color: 'var(--accent-blue)', border: '1px solid rgba(59,130,246,0.3)', flexShrink: 0 }}>{catPercent}%</span>
+                      )}
+                      <button onClick={() => editCategoryName(cat)} className="no-print" style={{ backgroundColor: 'transparent', boxShadow: 'none', padding: 0, border: 'none', color: '#9ca3af', flexShrink: 0, cursor: 'pointer' }} title="แก้ไขชื่อหมวด">
+                        <Edit2 size={12} />
+                      </button>
                     </div>
-                    <div className="progress-container h-2 bg-slate-800 print:bg-gray-200">
-                      <div className="progress-bar print:!bg-black print:!opacity-50" style={{ width: `${percent}%`, backgroundColor: statusColor }} />
+                    <div style={rowStyle}>
+                      <span style={{ color: '#9ca3af' }}>ใช้ไป</span>
+                      <span style={{ fontWeight: 700, color: percent >= 100 ? 'var(--accent-red)' : '#e5e7eb' }}>฿{formatMoney(spent)}</span>
                     </div>
-                    {percent >= 100 && (
-                      <p className="text-xs text-red mt-1 text-right font-medium print:text-black">⚠️ เกินงบที่ตั้งไว้แล้ว!</p>
-                    )}
+                    <div style={rowStyle}>
+                      <span style={{ color: '#9ca3af' }}>เป้า</span>
+                      <span onClick={editLimit} style={{ cursor: 'pointer', color: '#cbd5e1' }} title="แตะเพื่อแก้ไขเป้า">฿{formatMoney(limit)} <span className="no-print">✎</span></span>
+                    </div>
+                    <div style={rowStyle}>
+                      <span style={{ color: '#9ca3af' }}>คงเหลือ</span>
+                      <span style={{ fontWeight: 700, color: remaining < 0 ? 'var(--accent-red)' : 'var(--accent-green)' }}>฿{formatMoney(remaining)}</span>
+                    </div>
+                    <div className="progress-container" style={{ height: '6px', marginTop: '4px', background: 'rgba(15,23,42,0.8)' }}>
+                      <div className="progress-bar" style={{ width: `${percent}%`, backgroundColor: statusColor }} />
+                    </div>
                   </div>
                 );
               })}
