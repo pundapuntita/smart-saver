@@ -46,7 +46,7 @@ const DEFAULT_INCOME_CATEGORIES = ['เงินเดือน', 'ฟรีแ�
 
 const PAYMENT_METHODS = ['เงินสด', 'โอน', 'บัตรเครดิต', 'ช้อปปี้'];
 
-function SmartSaverApp({ profileName = 'ปัณด้า' }) {
+function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null }) {
   const [editingId, setEditingId] = useState(null);
   const [editingAccountId, setEditingAccountId] = useState(null);
   const [tempAccountVal, setTempAccountVal] = useState("");
@@ -60,8 +60,10 @@ function SmartSaverApp({ profileName = 'ปัณด้า' }) {
     if (savedData) {
       try { return JSON.parse(savedData); } catch (e) { return null; }
     }
+    // โปรไฟล์ใหม่: ใช้บัญชีจากโปรไฟล์เก่า (พร้อมยอดคำนวณ) เป็นจุดเริ่มต้น
+    if (seedAccounts) return { accounts: seedAccounts };
     return null;
-  }, [profileName]);
+  }, [profileName, seedAccounts]);
 
   const [accounts, setAccounts] = useState(initData?.accounts || [{ id: '1', name: 'บัญชีหลัก', balance: 0 }]);
   const [transactions, setTransactions] = useState(initData?.transactions || []);
@@ -822,7 +824,7 @@ function SmartSaverApp({ profileName = 'ปัณด้า' }) {
 
       <section className="dashboard-grid mb-8 no-print" style={{ alignItems: 'stretch' }}>
         <div className="glass-card flex flex-col items-center justify-start text-center">
-          <div className="flex items-center justify-between w-full mb-4 group cursor-pointer" onClick={() => toggleSection('accounts')}>
+          <div className="flex items-center justify-between w-full mb-3 group cursor-pointer" onClick={() => toggleSection('accounts')}>
             <div className="flex items-center gap-2 flex-1 justify-center relative pl-8">
               <Wallet size={24} style={{ color: 'var(--accent-blue)' }} />
               <h2 className="text-lg font-bold">บัญชีเงินต้น</h2>
@@ -835,47 +837,52 @@ function SmartSaverApp({ profileName = 'ปัณด้า' }) {
             </button>
           </div>
           {!collapsedSections['accounts'] && (
-            <>
-              <div className="flex flex-col gap-3 w-full max-h-[220px] overflow-y-auto pr-2 mb-4">
-            {accounts.map(acc => (
-              <div key={acc.id} className="flex flex-col bg-slate-800/40 p-2.5 rounded border border-slate-700/50">
-                 <div className="flex items-center justify-between text-sm mb-2">
-                    <div className="font-medium flex-1 text-left cursor-pointer hover:text-blue-400 transition-colors flex items-center gap-1 min-w-0 group" onClick={() => editAccountName(acc.id, acc.name)}>
-                       <span className="truncate">{acc.name}</span><span className="text-[10px] text-muted opacity-0 group-hover:opacity-60 transition-opacity shrink-0 mt-0.5" title="แก้ไขชื่อ">✎</span>
-                    </div>
-                    <button onClick={() => deleteAccount(acc.id)} className="text-gray-500 hover:text-red-400 transition-colors bg-transparent border-none p-1 shadow-none rounded-full flex items-center justify-center h-6 w-6 ml-1" title="ลบบัญชี"> × </button>
-                 </div>
-                 
-                 <div className="flex items-center justify-between text-xs text-muted mb-2 bg-slate-900/40 px-2 py-1 rounded">
-                    <span>ยอดเงินตั้งต้น (ก่อนเริ่มใช้แอป):</span>
+            <div className="grid grid-cols-2 gap-2 w-full mb-3">
+              {accounts.map(acc => (
+                <div key={acc.id} className="flex flex-col bg-slate-800/40 p-2 rounded-lg border border-slate-700/50 min-w-0 text-left">
+                  {/* ชื่อบัญชี + ลบ */}
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs font-semibold truncate cursor-pointer hover:text-blue-400 transition-colors flex-1 mr-1"
+                      onClick={() => editAccountName(acc.id, acc.name)} title="แตะเพื่อแก้ไขชื่อ">
+                      {acc.name}
+                    </span>
+                    <button onClick={() => deleteAccount(acc.id)}
+                      className="text-gray-600 hover:text-red-400 transition-colors text-sm leading-none h-5 w-5 flex items-center justify-center shrink-0 bg-transparent border-none shadow-none p-0">×</button>
+                  </div>
+                  {/* ยอดตั้งต้น */}
+                  <div className="text-[10px] text-muted flex items-center justify-between mb-1.5">
+                    <span>ตั้งต้น:</span>
                     {editingAccountId === acc.id ? (
-                      <div className="flex items-center gap-1.5">
-                        <input type="number" value={tempAccountVal} onChange={e => setTempAccountVal(e.target.value)} onKeyDown={(e) => { if(e.key === 'Enter') saveBalance(acc.id); }} className="w-[70px] h-[24px] bg-slate-900 border border-blue-500 rounded px-1.5 text-right font-bold text-main" style={{ boxShadow: 'none' }} autoFocus />
-                        <button onClick={() => saveBalance(acc.id)} className="text-white bg-blue-600 hover:bg-blue-500 text-[10px] px-1.5 h-[24px] rounded transition-colors shadow-sm font-bold flex items-center justify-center">บันทึก</button>
+                      <div className="flex items-center gap-1">
+                        <input type="number" value={tempAccountVal}
+                          onChange={e => setTempAccountVal(e.target.value)}
+                          onKeyDown={e => { if(e.key === 'Enter') saveBalance(acc.id); }}
+                          className="w-16 h-5 bg-slate-900 border border-blue-500 rounded px-1 text-right text-xs font-bold"
+                          style={{ boxShadow: 'none' }} autoFocus />
+                        <button onClick={() => saveBalance(acc.id)}
+                          className="text-white bg-blue-600 hover:bg-blue-500 text-[9px] px-1.5 h-5 rounded font-bold">✓</button>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-1 group/bal cursor-pointer" onClick={() => handleEditBalance(acc)}>
-                        <span className="font-bold group-hover/bal:text-blue-400 transition-colors">฿ {formatMoney(acc.balance || 0)}</span>
-                        <span className="text-[10px] text-muted opacity-0 group-hover/bal:opacity-60 transition-opacity">✎</span>
-                      </div>
+                      <span className="cursor-pointer hover:text-blue-400 transition-colors font-medium"
+                        onClick={() => handleEditBalance(acc)} title="แตะเพื่อแก้ไข">
+                        ฿{formatMoney(acc.balance || 0)} ✎
+                      </span>
                     )}
-                 </div>
-
-                 <div className="flex justify-between items-center text-xs px-1">
-                    <div className="flex flex-col">
-                       <span className="text-gray-400 mb-0.5">ต้นเดือน</span>
-                       <span className="font-semibold text-main">฿ {formatMoney(monthlyAccountBalances.start[acc.id] || 0)}</span>
+                  </div>
+                  {/* ต้นเดือน → ปัจจุบัน */}
+                  <div className="border-t border-slate-700/50 pt-1.5 flex justify-between items-end">
+                    <div className="text-[10px]">
+                      <div className="text-muted">ต้นเดือน</div>
+                      <div className="font-medium text-gray-300">฿{formatMoney(monthlyAccountBalances.start[acc.id] || 0)}</div>
                     </div>
-                    <div className="text-gray-600">→</div>
-                    <div className="flex flex-col text-right">
-                       <span className="text-gray-400 mb-0.5">สิ้นเดือน (ยอดยกไป)</span>
-                       <span className="font-bold text-blue-400">฿ {formatMoney(monthlyAccountBalances.end[acc.id] || 0)}</span>
+                    <div className="text-[10px] text-right">
+                      <div className="text-muted">ปัจจุบัน</div>
+                      <div className="font-bold text-blue-400">฿{formatMoney(monthlyAccountBalances.end[acc.id] || 0)}</div>
                     </div>
-                 </div>
-              </div>
-            ))}
-              </div>
-            </>
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
           <div className="mt-auto pt-3 border-t border-gray-700 w-full flex flex-col gap-1 px-1">
             <div className="flex justify-between items-center">
@@ -1695,14 +1702,64 @@ function SmartSaverApp({ profileName = 'ปัณด้า' }) {
 }
 
 export default function App() {
-  useEffect(() => {
-    localStorage.setItem('smartSaverProfile', 'ปัณด้า');
+  const [activeTab, setActiveTab] = useState('new');
+
+  // คำนวณยอดเงินคงเหลือจากโปรไฟล์เก่า เพื่อนำไปเป็นยอดตั้งต้นของโปรไฟล์ใหม่
+  const seedAccounts = useMemo(() => {
+    try {
+      const raw = localStorage.getItem('smartSaverData_ปัณด้า') || localStorage.getItem('smartSaverData');
+      if (!raw) return null;
+      const old = JSON.parse(raw);
+      if (!old?.accounts?.length) return null;
+      const bals = {};
+      old.accounts.forEach(a => { bals[a.id] = parseFloat(a.balance) || 0; });
+      (old.transactions || []).forEach(t => {
+        if (t.type === 'income' && t.targetAccountId && bals[t.targetAccountId] !== undefined) {
+          bals[t.targetAccountId] += t.amount;
+        } else if (t.type === 'transfer') {
+          if (t.sourceAccountId && bals[t.sourceAccountId] !== undefined) bals[t.sourceAccountId] -= t.amount;
+          if (t.targetAccountId && bals[t.targetAccountId] !== undefined) bals[t.targetAccountId] += t.amount;
+        } else if (t.type === 'expense' && t.paymentMethod !== 'บัตรเครดิต' && t.paymentMethod !== 'ช้อปปี้' && t.sourceAccountId && bals[t.sourceAccountId] !== undefined) {
+          bals[t.sourceAccountId] -= t.amount;
+        } else if (t.type === 'cc_payment' && t.sourceAccountId && bals[t.sourceAccountId] !== undefined) {
+          bals[t.sourceAccountId] -= t.amount;
+        }
+      });
+      return old.accounts.map(a => ({ ...a, balance: Math.round((bals[a.id] || 0) * 100) / 100 }));
+    } catch { return null; }
   }, []);
 
   return (
     <div className="w-full min-h-screen flex flex-col items-center">
+      {/* Tab switcher */}
+      <div className="flex gap-1 mt-4 mb-2 p-1 bg-slate-800/60 rounded-xl border border-slate-700/50 no-print">
+        <button
+          onClick={() => setActiveTab('new')}
+          className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
+            activeTab === 'new'
+              ? 'bg-blue-600 text-white shadow-md shadow-blue-500/30'
+              : 'text-gray-400 hover:text-gray-200 hover:bg-slate-700/50'
+          }`}
+        >
+          ✨ ข้อมูลใหม่ <span className="text-xs font-normal opacity-80">(พ.ย. 2568+)</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('old')}
+          className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
+            activeTab === 'old'
+              ? 'bg-slate-500 text-white shadow-md'
+              : 'text-gray-400 hover:text-gray-200 hover:bg-slate-700/50'
+          }`}
+        >
+          📦 ข้อมูลเก่า <span className="text-xs font-normal opacity-80">(ถึง ต.ค. 2568)</span>
+        </button>
+      </div>
+
       <div className="w-full relative">
-        <SmartSaverApp profileName="ปัณด้า" />
+        {activeTab === 'new'
+          ? <SmartSaverApp profileName="ปัณด้า-v2" seedAccounts={seedAccounts} />
+          : <SmartSaverApp profileName="ปัณด้า" />
+        }
       </div>
     </div>
   );
