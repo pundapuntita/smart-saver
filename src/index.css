@@ -1,3 +1,8 @@
+html {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+}
+
 :root {
   --bg-primary: #0f172a;
   --bg-secondary: #1e293b;
@@ -301,6 +306,147 @@ button {
 ::-webkit-scrollbar-track { background: var(--bg-primary); }
 ::-webkit-scrollbar-thumb { background: var(--glass-border); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+
+/* Component classes with responsive styling for Mobile (iPhone) & Desktop */
+.accounts-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  width: 100%;
+}
+.account-card-item {
+  padding: 8px 10px;
+  min-width: 0;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-radius: 12px;
+}
+.account-name-label {
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+.account-balance-val {
+  font-size: 14px;
+  font-weight: 700;
+  color: #60a5fa;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.summary-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+.summary-card-item {
+  padding: 0.85rem 1rem;
+  border-radius: 1rem;
+}
+.summary-breakdown-box {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(71, 85, 105, 0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 11px;
+}
+
+.budget-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.budget-card-item {
+  background: rgba(30, 41, 59, 0.5);
+  border-radius: 12px;
+  padding: 10px 12px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.budget-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  gap: 4px;
+}
+
+/* ========================================================
+   iPhone / Mobile Optimization (Screens <= 640px)
+   Keeps Desktop (>640px) 100% identical to before!
+   ======================================================== */
+@media (max-width: 640px) {
+  #root {
+    padding: calc(env(safe-area-inset-top, 0px) + 0.65rem) calc(env(safe-area-inset-right, 0px) + 0.65rem) calc(env(safe-area-inset-bottom, 0px) + 1.5rem) calc(env(safe-area-inset-left, 0px) + 0.65rem);
+  }
+  .glass-card {
+    padding: 1rem 0.85rem;
+    border-radius: 1.15rem;
+  }
+  .glass-card:hover {
+    transform: none;
+    box-shadow: var(--glass-shadow);
+  }
+  button {
+    touch-action: manipulation;
+  }
+  form input, form select {
+    font-size: 16px; /* Prevents iOS auto-zoom on focus */
+  }
+
+  .accounts-grid {
+    gap: 6px;
+  }
+  .account-card-item {
+    padding: 6px 7px;
+    border-radius: 10px;
+  }
+  .account-name-label {
+    font-size: 11px;
+  }
+  .account-balance-val {
+    font-size: 13px;
+  }
+
+  .summary-cards-grid {
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+  .summary-card-item {
+    padding: 0.75rem 0.65rem;
+    border-radius: 0.875rem;
+  }
+  .summary-breakdown-box {
+    font-size: 10px;
+    gap: 1.5px;
+  }
+
+  .budget-cards-grid {
+    gap: 6px;
+  }
+  .budget-card-item {
+    padding: 8px 8px;
+    border-radius: 10px;
+    gap: 3px;
+  }
+  .budget-row {
+    font-size: 11px;
+    gap: 2px;
+  }
+}
 
 /* ==== Print Media Queries (PDF Export) ==== */
 @media print {

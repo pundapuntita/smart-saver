@@ -913,12 +913,12 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
           </div>
         </div>
           {!collapsedSections['accounts'] && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '8px', width: '100%' }}>
+            <div className="accounts-grid">
               {accounts.map(acc => (
-                <div key={acc.id} className="glass-card" style={{ padding: '8px 10px', minWidth: 0, textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '2px', borderRadius: '12px' }}>
+                <div key={acc.id} className="glass-card account-card-item">
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '4px' }}>
                     <span onClick={() => editAccountName(acc.id, acc.name)} title="แตะเพื่อแก้ไขชื่อ"
-                      style={{ fontSize: '12px', fontWeight: 600, cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                      className="account-name-label">
                       {acc.name}
                     </span>
                     <button onClick={() => deleteAccount(acc.id)}
@@ -935,7 +935,7 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
                     </div>
                   ) : (
                     <div onClick={() => handleEditBalance(acc)} title="แตะเพื่อแก้ไขยอดตั้งต้น"
-                      style={{ fontSize: '14px', fontWeight: 700, color: '#60a5fa', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      className="account-balance-val">
                       ฿{formatMoney(monthlyAccountBalances.end[acc.id] || 0)}
                     </div>
                   )}
@@ -973,8 +973,8 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
         </div>
       </section>
 
-      <section className="grid grid-cols-2 gap-3 mb-6" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
-        <div className="glass-card" style={{ padding: '0.85rem 1rem', borderRadius: '1rem' }}>
+      <section className="summary-cards-grid">
+        <div className="glass-card summary-card-item">
           <div className="flex items-center justify-between mb-1 group cursor-pointer" onClick={() => toggleSection('income_card')}>
             <div className="flex items-center gap-1.5 min-w-0">
               <ArrowUpCircle className="text-green shrink-0" size={18} />
@@ -992,7 +992,7 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
           )}
         </div>
 
-        <div className="glass-card" style={{ padding: '0.85rem 1rem', borderRadius: '1rem' }}>
+        <div className="glass-card summary-card-item">
           <div className="flex items-center justify-between mb-1 group cursor-pointer" onClick={() => toggleSection('refund_income_card')}>
             <div className="flex items-center gap-1.5 min-w-0">
               <ArrowUpCircle className="text-teal-400 shrink-0" size={18} />
@@ -1010,7 +1010,7 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
           )}
         </div>
 
-        <div className="glass-card" style={{ padding: '0.85rem 1rem', borderRadius: '1rem' }}>
+        <div className="glass-card summary-card-item">
           <div className="flex items-center justify-between mb-1 group cursor-pointer" onClick={() => toggleSection('expense_card')}>
             <div className="flex items-center gap-1.5 min-w-0">
               <ArrowDownCircle className="text-red shrink-0" size={18} />
@@ -1026,7 +1026,7 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
               <div className="text-[10px] sm:text-[11px] text-muted truncate mt-0.5">
                 จากเงินเดือน {monthNormalIncome > 0 && <span className="text-emerald-400 font-medium">(เหลือ ฿ {formatMoney(monthNormalIncome - monthNormalExpense)})</span>}
               </div>
-              <div style={{ marginTop: '6px', paddingTop: '6px', borderTop: '1px solid rgba(71,85,105,0.5)', display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '11px' }}>
+              <div className="summary-breakdown-box">
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: '6px' }}>
                   <span style={{ color: '#9ca3af' }}>✅ จ่ายแล้ว (โอน/เงินสด)</span>
                   <span style={{ fontWeight: 700, color: '#e5e7eb' }}>฿ {formatMoney(monthNormalExpenseBreakdown.paid)}</span>
@@ -1044,7 +1044,7 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
           )}
         </div>
 
-        <div className="glass-card" style={{ padding: '0.85rem 1rem', borderRadius: '1rem' }}>
+        <div className="glass-card summary-card-item">
           <div className="flex items-center justify-between mb-1 group cursor-pointer" onClick={() => toggleSection('other_expense_card')}>
             <div className="flex items-center gap-1.5 min-w-0">
               <ArrowDownCircle className="text-amber-500 shrink-0" size={18} />
@@ -1060,7 +1060,7 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
               <div className="text-[10px] sm:text-[11px] text-muted truncate mt-0.5">
                 ไม่ได้เอาเงินเดือนจ่าย
               </div>
-              <div style={{ marginTop: '6px', paddingTop: '6px', borderTop: '1px solid rgba(71,85,105,0.5)', display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '11px' }}>
+              <div className="summary-breakdown-box">
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: '6px' }}>
                   <span style={{ color: '#9ca3af' }}>👥 รายจ่ายของคนอื่น</span>
                   <span style={{ fontWeight: 700, color: '#e5e7eb' }}>฿ {formatMoney(monthOtherExpenseBreakdown.otherPeople)}</span>
@@ -1560,7 +1560,7 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
             <>
             <p className="text-xs text-muted mb-6 opacity-75 no-print">💡 แตะที่ตัวเลขยอดเงิน / งบ เพื่อแก้ไขเป้าหมาย</p>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '10px' }}>
+            <div className="budget-cards-grid">
               {CATEGORIES.map(cat => {
                 const spent = categoryExpenses[cat] || 0;
                 const limit = budgets[cat] || 0;
@@ -1579,10 +1579,8 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
                   }
                 };
 
-                const rowStyle = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', gap: '4px' };
-
                 return (
-                  <div key={cat} style={{ background: 'rgba(30,41,59,0.5)', border: `1px solid ${percent >= 100 ? 'rgba(239,68,68,0.5)' : 'rgba(71,85,105,0.5)'}`, borderRadius: '12px', padding: '10px 12px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <div key={cat} className="budget-card-item" style={{ border: `1px solid ${percent >= 100 ? 'rgba(239,68,68,0.5)' : 'rgba(71,85,105,0.5)'}` }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, marginBottom: '2px' }}>
                       <span style={{ fontWeight: 600, fontSize: '13px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{cat}</span>
                       {parseFloat(catPercent) > 0 && (
@@ -1592,15 +1590,15 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
                         <Edit2 size={12} />
                       </button>
                     </div>
-                    <div style={rowStyle}>
+                    <div className="budget-row">
                       <span style={{ color: '#9ca3af' }}>ใช้ไป</span>
                       <span style={{ fontWeight: 700, color: percent >= 100 ? 'var(--accent-red)' : '#e5e7eb' }}>฿{formatMoney(spent)}</span>
                     </div>
-                    <div style={rowStyle}>
+                    <div className="budget-row">
                       <span style={{ color: '#9ca3af' }}>เป้า</span>
                       <span onClick={editLimit} style={{ cursor: 'pointer', color: '#cbd5e1' }} title="แตะเพื่อแก้ไขเป้า">฿{formatMoney(limit)} <span className="no-print">✎</span></span>
                     </div>
-                    <div style={rowStyle}>
+                    <div className="budget-row">
                       <span style={{ color: '#9ca3af' }}>คงเหลือ</span>
                       <span style={{ fontWeight: 700, color: remaining < 0 ? 'var(--accent-red)' : 'var(--accent-green)' }}>฿{formatMoney(remaining)}</span>
                     </div>
