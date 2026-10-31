@@ -438,6 +438,16 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
   const monthNormalIncome = useMemo(() => filteredTransactions.filter(t => t.type === 'income' && !t.projectId && (!t.incomeType || t.incomeType === 'normal')).reduce((sum, t) => sum + t.amount, 0), [filteredTransactions]);
   const monthRefundIncome = useMemo(() => filteredTransactions.filter(t => t.type === 'income' && !t.projectId && t.incomeType === 'refund').reduce((sum, t) => sum + t.amount, 0), [filteredTransactions]);
   const monthNormalExpense = useMemo(() => filteredTransactions.filter(t => t.type === 'expense' && !t.projectId && (!t.expenseType || t.expenseType === 'normal')).reduce((sum, t) => sum + t.amount, 0), [filteredTransactions]);
+  const monthNormalExpenseBreakdown = useMemo(() => {
+    const b = { paid: 0, cc: 0, shopee: 0 };
+    filteredTransactions.forEach(t => {
+      if (t.type !== 'expense' || t.projectId || (t.expenseType && t.expenseType !== 'normal')) return;
+      if (t.paymentMethod === 'บัตรเครดิต') b.cc += t.amount;
+      else if (t.paymentMethod === 'ช้อปปี้') b.shopee += t.amount;
+      else b.paid += t.amount;
+    });
+    return b;
+  }, [filteredTransactions]);
   const monthOtherExpense = useMemo(() => filteredTransactions.filter(t => t.type === 'expense' && !t.projectId && t.expenseType === 'other').reduce((sum, t) => sum + t.amount, 0), [filteredTransactions]);
   const monthExpense = useMemo(() => filteredTransactions.filter(t => t.type === 'expense' && !t.projectId).reduce((sum, t) => sum + t.amount, 0), [filteredTransactions]);
   // calendarMonthExpense ใช้ filteredTransactions เพื่อให้ CC หลังวันที่ 19 ถูกตัดออกจากเดือนนี้
@@ -989,6 +999,20 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
               <p className="text-lg sm:text-xl font-bold text-red">฿ {formatMoney(monthNormalExpense)}</p>
               <div className="text-[10px] sm:text-[11px] text-muted truncate mt-0.5">
                 จากเงินเดือน {monthNormalIncome > 0 && <span className="text-emerald-400 font-medium">(เหลือ ฿ {formatMoney(monthNormalIncome - monthNormalExpense)})</span>}
+              </div>
+              <div style={{ marginTop: '6px', paddingTop: '6px', borderTop: '1px solid rgba(71,85,105,0.5)', display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '11px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '6px' }}>
+                  <span style={{ color: '#9ca3af' }}>✅ จ่ายแล้ว (โอน/เงินสด)</span>
+                  <span style={{ fontWeight: 700, color: '#e5e7eb' }}>฿ {formatMoney(monthNormalExpenseBreakdown.paid)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '6px' }}>
+                  <span style={{ color: '#9ca3af' }}>💳 บัตรเครดิต (ยังไม่จ่าย)</span>
+                  <span style={{ fontWeight: 700, color: '#fb923c' }}>฿ {formatMoney(monthNormalExpenseBreakdown.cc)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '6px' }}>
+                  <span style={{ color: '#9ca3af' }}>🛒 ช้อปปี้ (ยังไม่จ่าย)</span>
+                  <span style={{ fontWeight: 700, color: '#fb923c' }}>฿ {formatMoney(monthNormalExpenseBreakdown.shopee)}</span>
+                </div>
               </div>
             </div>
           )}
