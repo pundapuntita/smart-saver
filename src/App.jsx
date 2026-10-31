@@ -860,24 +860,26 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
       </div>
       <p className="text-center text-xs text-muted mb-6 no-print">* บัตรเครดิต ตัดรอบบิลวันที่ 19 ของทุกเดือน (ยอดวันที่ 20 จะถูกยกยอดไปรอบบิลเดือนถัดไปอัตโนมัติ)</p>
 
-      <section className="dashboard-grid mb-8 no-print" style={{ alignItems: 'stretch' }}>
-        <div className="glass-card flex flex-col items-center justify-start text-center">
-          <div className="flex items-center justify-between w-full mb-3 group cursor-pointer" onClick={() => toggleSection('accounts')}>
-            <div className="flex items-center gap-2 flex-1 justify-center relative pl-8">
-              <Wallet size={24} style={{ color: 'var(--accent-blue)' }} />
-              <h2 className="text-lg font-bold">บัญชีเงินต้น</h2>
-              <button onClick={(e) => { e.stopPropagation(); addAccount(); }} className="ml-2 text-xs bg-slate-700 hover:bg-slate-600 text-white rounded px-2 py-1 transition-colors">
-                + เพิ่ม
-              </button>
-            </div>
-            <button className="text-gray-500 group-hover:text-gray-300 p-1 no-print">
+      {/* Accounts Section — full-width grid of cards */}
+      <section className="mb-6 no-print">
+        <div className="flex items-center justify-between mb-3 px-1">
+          <div className="flex items-center gap-2">
+            <Wallet size={20} style={{ color: 'var(--accent-blue)' }} />
+            <h2 className="text-base font-bold">บัญชีเงินต้น</h2>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted">รวมคงเหลือ</span>
+            <span className="text-base font-bold text-blue-400">฿{formatMoney(Object.values(monthlyAccountBalances.end).reduce((a,b)=>a+b,0))}</span>
+            <button onClick={() => addAccount()} className="text-xs bg-slate-700 hover:bg-slate-600 text-white rounded px-2 py-1 transition-colors">+ เพิ่ม</button>
+            <button onClick={() => toggleSection('accounts')} className="text-gray-500 hover:text-gray-300 p-1 bg-transparent border-none shadow-none">
               {collapsedSections['accounts'] ? <ChevronDown size={20}/> : <ChevronUp size={20}/>}
             </button>
           </div>
+        </div>
           {!collapsedSections['accounts'] && (
-            <div className="grid grid-cols-2 gap-2 w-full mb-3">
+            <div className="grid grid-cols-3 gap-2 w-full">
               {accounts.map(acc => (
-                <div key={acc.id} className="flex flex-col bg-slate-800/40 p-2 rounded-lg border border-slate-700/50 min-w-0 text-left">
+                <div key={acc.id} className="glass-card flex flex-col min-w-0 text-left" style={{ padding: '10px' }}>
                   {/* ชื่อบัญชี + ลบ */}
                   <div className="flex items-center justify-between mb-1.5">
                     <span className="text-xs font-semibold truncate cursor-pointer hover:text-blue-400 transition-colors flex-1 mr-1"
@@ -908,37 +910,28 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
                     )}
                   </div>
                   {/* รายรับ / รายจ่าย */}
-                  <div className="border-t border-slate-700/50 pt-1.5 flex justify-between items-end gap-1">
-                    <div className="text-[10px] flex-1">
-                      <div className="text-muted">รายรับ</div>
-                      <div className="font-semibold text-green-400">+฿{formatMoney(accountMonthlyStats[acc.id]?.income || 0)}</div>
+                  <div className="border-t border-slate-700/50 pt-1.5 flex flex-col gap-0.5">
+                    <div className="text-[10px] flex justify-between gap-1">
+                      <span className="text-muted">รับ</span>
+                      <span className="font-semibold text-green-400 truncate">+฿{formatMoney(accountMonthlyStats[acc.id]?.income || 0)}</span>
                     </div>
-                    <div className="text-[10px] flex-1 text-right">
-                      <div className="text-muted">รายจ่าย</div>
-                      <div className="font-semibold text-red-400">-฿{formatMoney(accountMonthlyStats[acc.id]?.expense || 0)}</div>
+                    <div className="text-[10px] flex justify-between gap-1">
+                      <span className="text-muted">จ่าย</span>
+                      <span className="font-semibold text-red-400 truncate">-฿{formatMoney(accountMonthlyStats[acc.id]?.expense || 0)}</span>
                     </div>
                   </div>
                   {/* ต้นเดือน → คงเหลือ */}
-                  <div className="flex justify-between items-end pt-1">
-                    <div className="text-[9px] text-muted">ต้น: ฿{formatMoney(monthlyAccountBalances.start[acc.id] || 0)}</div>
-                    <div className="text-[9px] font-bold text-blue-400">คงเหลือ: ฿{formatMoney(monthlyAccountBalances.end[acc.id] || 0)}</div>
+                  <div className="flex flex-col pt-1 mt-auto">
+                    <div className="text-[9px] text-muted truncate">ต้น: ฿{formatMoney(monthlyAccountBalances.start[acc.id] || 0)}</div>
+                    <div className="text-xs font-bold text-blue-400 truncate">฿{formatMoney(monthlyAccountBalances.end[acc.id] || 0)}</div>
                   </div>
                 </div>
               ))}
             </div>
           )}
-          <div className="mt-auto pt-3 border-t border-gray-700 w-full flex flex-col gap-1 px-1">
-            <div className="flex justify-between items-center">
-              <span className="text-xs text-gray-500 font-medium">รวมต้นเดือน:</span>
-              <span className="text-sm font-bold text-gray-300">฿ {formatMoney(Object.values(monthlyAccountBalances.start).reduce((a,b)=>a+b,0))}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-400 font-medium">รวมสิ้นเดือน (คงเหลือล่าสุด):</span>
-              <span className="text-xl font-bold text-blue-400">฿ {formatMoney(Object.values(monthlyAccountBalances.end).reduce((a,b)=>a+b,0))}</span>
-            </div>
-          </div>
-        </div>
-        
+      </section>
+
+      <section className="dashboard-grid mb-8 no-print" style={{ alignItems: 'stretch' }}>
         <div className="glass-card flex flex-col justify-center gap-4">
           <div className="flex justify-between items-center border-b border-gray-700 pb-3 mt-1">
             <div className="text-left">
