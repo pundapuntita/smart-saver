@@ -400,19 +400,21 @@ function SmartSaverApp({ profileName = 'ปัณด้า' }) {
   const monthNormalExpense = useMemo(() => filteredTransactions.filter(t => t.type === 'expense' && !t.projectId && (!t.expenseType || t.expenseType === 'normal')).reduce((sum, t) => sum + t.amount, 0), [filteredTransactions]);
   const monthOtherExpense = useMemo(() => filteredTransactions.filter(t => t.type === 'expense' && !t.projectId && t.expenseType === 'other').reduce((sum, t) => sum + t.amount, 0), [filteredTransactions]);
   const monthExpense = useMemo(() => filteredTransactions.filter(t => t.type === 'expense' && !t.projectId).reduce((sum, t) => sum + t.amount, 0), [filteredTransactions]);
-  const calendarMonthExpense = useMemo(() => historyTransactions.filter(t => t.type === 'expense' && !t.projectId).reduce((sum, t) => sum + t.amount, 0), [historyTransactions]);
+  // calendarMonthExpense ใช้ filteredTransactions เพื่อให้ CC หลังวันที่ 19 ถูกตัดออกจากเดือนนี้
+  const calendarMonthExpense = useMemo(() => filteredTransactions.filter(t => t.type === 'expense' && !t.projectId).reduce((sum, t) => sum + t.amount, 0), [filteredTransactions]);
 
   const categoryExpenses = useMemo(() => {
     const expenses = {};
     CATEGORIES.forEach(c => expenses[c] = 0);
-    historyTransactions.forEach(t => {
+    // ใช้ filteredTransactions เพื่อให้ CC หลังวันที่ 19 ถูกนับในรอบบิลถัดไปแทน
+    filteredTransactions.forEach(t => {
       if (t.type === 'expense' && !t.projectId) {
         const c = t.category;
         expenses[c !== undefined && expenses[c] !== undefined ? c : 'อื่นๆ'] += t.amount;
       }
     });
     return expenses;
-  }, [historyTransactions, CATEGORIES]);
+  }, [filteredTransactions, CATEGORIES]);
 
   const paymentMethodSummary = useMemo(() => {
     const summary = {};
@@ -453,6 +455,25 @@ function SmartSaverApp({ profileName = 'ปัณด้า' }) {
     });
     return summary;
   }, [filteredTransactions]);
+
+  // รายจ่ายบัตรเครดิต/ช้อปปี้ วันที่ 20+ ของเดือนที่กำลังดู (ทบไปรอบบิลถัดไป)
+  const nextCycleCCExpense = useMemo(() => {
+    return transactions.filter(t => {
+      if (t.type !== 'expense' || t.paymentMethod !== 'บัตรเครดิต' || t.projectId) return false;
+      const d = new Date(t.date);
+      const calYYYYMM = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      return calYYYYMM === viewMonth && d.getDate() >= 20;
+    }).reduce((sum, t) => sum + t.amount, 0);
+  }, [transactions, viewMonth]);
+
+  const nextCycleShopeeExpense = useMemo(() => {
+    return transactions.filter(t => {
+      if (t.type !== 'expense' || t.paymentMethod !== 'ช้อปปี้' || t.projectId) return false;
+      const d = new Date(t.date);
+      const calYYYYMM = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      return calYYYYMM === viewMonth && d.getDate() >= 20;
+    }).reduce((sum, t) => sum + t.amount, 0);
+  }, [transactions, viewMonth]);
 
   const pieData = useMemo(() => {
     return CATEGORIES.map(cat => ({
@@ -1154,6 +1175,73 @@ function SmartSaverApp({ profileName = 'ปัณด้า' }) {
                        </select>
                      </div>
                    </div>
+
+                   {/* Quick-fill: เลือกรอบบิลที่ต้องการจ่าย */}
+                   {(() => {
+                     const summary = paymentMethodSummary[paymentMethod] || { total: 0, paid: 0 };
+                     const currentDue = Math.max(0, summary.total - summary.paid);
+                     const nextDue = paymentMethod === 'บัตรเครดิต' ? nextCycleCCExpense : nextCycleShopeeExpense;
+                     if (summary.total === 0 && nextDue === 0) return null;
+                     const [nextY, nextM] = viewMonth.split('-').map(Number);
+                     const nextDate = new Date(nextY, nextM, 1);
+                     const nextMonthNames = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
+                     const nextMonthStr = `${nextMonthNames[nextDate.getMonth()]} ${nextDate.getFullYear()}`;
+                     return (
+                       <div className="flex flex-col gap-1.5 p-3 bg-slate-800/60 rounded-xl border border-slate-700/50">
+                         <div className="text-xs text-gray-400 font-medium mb-0.5">📋 กดเพื่อใส่ยอดที่ต้องการจ่าย</div>
+
+                         {/* รอบบิลปัจจุบัน */}
+                         <div className="flex justify-between items-center py-1.5 px-2 rounded-lg hover:bg-slate-700/40 transition-colors group">
+                           <div className="flex flex-col">
+                             <span className="text-sm text-gray-200">รอบบิลปัจจุบัน <span className="text-xs text-muted">({displayMonthStr})</span></span>
+                             <span className="text-[11px] text-muted">ยอดค้างจ่ายรอบนี้</span>
+                           </div>
+                           <button
+                             type="button"
+                             onClick={() => setAmount(currentDue.toFixed(2))}
+                             className="text-sm font-bold text-orange-400 hover:text-orange-300 bg-orange-400/10 hover:bg-orange-400/20 border border-orange-400/30 hover:border-orange-400/60 px-3 py-1 rounded-lg transition-all"
+                           >
+                             ฿ {formatMoney(currentDue)}
+                           </button>
+                         </div>
+
+                         {/* รอบบิลถัดไป (วันที่ 20+) */}
+                         {nextDue > 0 && (
+                           <div className="flex justify-between items-center py-1.5 px-2 rounded-lg hover:bg-slate-700/40 transition-colors group">
+                             <div className="flex flex-col">
+                               <span className="text-sm text-gray-200">รอบบิลถัดไป <span className="text-xs text-muted">({nextMonthStr})</span></span>
+                               <span className="text-[11px] text-blue-400/80">รายการวันที่ 20+ ที่ทบไปรอบหน้า — จ่ายล่วงหน้าได้</span>
+                             </div>
+                             <button
+                               type="button"
+                               onClick={() => setAmount(nextDue.toFixed(2))}
+                               className="text-sm font-bold text-blue-400 hover:text-blue-300 bg-blue-400/10 hover:bg-blue-400/20 border border-blue-400/30 hover:border-blue-400/60 px-3 py-1 rounded-lg transition-all"
+                             >
+                               ฿ {formatMoney(nextDue)}
+                             </button>
+                           </div>
+                         )}
+
+                         {/* จ่ายรวมทั้ง 2 รอบ */}
+                         {nextDue > 0 && currentDue > 0 && (
+                           <div className="flex justify-between items-center py-1.5 px-2 rounded-lg hover:bg-slate-700/40 transition-colors border-t border-slate-700/60 mt-0.5 pt-2">
+                             <div className="flex flex-col">
+                               <span className="text-sm font-semibold text-green-400">จ่ายรวมทั้ง 2 รอบ</span>
+                               <span className="text-[11px] text-muted">ปิดรอบนี้ + จ่ายล่วงหน้ารอบหน้า</span>
+                             </div>
+                             <button
+                               type="button"
+                               onClick={() => setAmount((currentDue + nextDue).toFixed(2))}
+                               className="text-sm font-bold text-green-400 hover:text-green-300 bg-green-400/10 hover:bg-green-400/20 border border-green-400/30 hover:border-green-400/60 px-3 py-1 rounded-lg transition-all"
+                             >
+                               ฿ {formatMoney(currentDue + nextDue)}
+                             </button>
+                           </div>
+                         )}
+                       </div>
+                     );
+                   })()}
+
                    <div className="p-3 bg-indigo-900/30 border border-indigo-500/50 rounded-lg text-sm text-indigo-300">
                       ℹ️ การ <b>"จ่ายบิล"</b> จะหักยอดออกจาก <u className="px-1 text-white">เงินในบัญชี</u> และไปลดยอด <u className="px-1 text-white">หนี้สะสม</u> ให้โดยอัตโนมัติ (และไม่ถูกนับเป็นรายจ่ายซ้ำ)
                    </div>
