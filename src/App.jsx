@@ -895,77 +895,77 @@ function SmartSaverApp({ profileName = 'ปัณด้า' }) {
         </div>
       </section>
 
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 print:grid-cols-4 gap-4 md:gap-5 mb-8">
-        <div className="glass-card">
-          <div className="flex items-center justify-between mb-2 group cursor-pointer" onClick={() => toggleSection('income_card')}>
-            <div className="flex items-center gap-2">
-              <ArrowUpCircle className="text-green" size={24} />
-              <h3 className="font-medium text-muted text-sm sm:text-base">รายรับปกติ (รอบบิลนี้)</h3>
+      <section className="grid grid-cols-2 gap-3 mb-6" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
+        <div className="glass-card" style={{ padding: '0.85rem 1rem', borderRadius: '1rem' }}>
+          <div className="flex items-center justify-between mb-1 group cursor-pointer" onClick={() => toggleSection('income_card')}>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <ArrowUpCircle className="text-green shrink-0" size={18} />
+              <h3 className="font-medium text-muted text-xs sm:text-sm truncate">รายรับปกติ (รอบบิลนี้)</h3>
             </div>
-            <button className="text-gray-500 group-hover:text-gray-300 p-1 no-print">
-              {collapsedSections['income_card'] ? <ChevronDown size={16}/> : <ChevronUp size={16}/>}
+            <button className="text-gray-500 group-hover:text-gray-300 p-0.5 no-print shrink-0">
+              {collapsedSections['income_card'] ? <ChevronDown size={14}/> : <ChevronUp size={14}/>}
             </button>
           </div>
           {!collapsedSections['income_card'] && (
             <div>
-              <p className="text-2xl font-bold text-green">฿ {formatMoney(monthNormalIncome)}</p>
-              <div className="text-[11px] text-muted mt-1">เงินเดือน / รายได้รอบบิลนี้</div>
+              <p className="text-lg sm:text-xl font-bold text-green">฿ {formatMoney(monthNormalIncome)}</p>
+              <div className="text-[10px] sm:text-[11px] text-muted truncate mt-0.5">เงินเดือน / รายได้รอบบิลนี้</div>
             </div>
           )}
         </div>
 
-        <div className="glass-card">
-          <div className="flex items-center justify-between mb-2 group cursor-pointer" onClick={() => toggleSection('refund_income_card')}>
-            <div className="flex items-center gap-2">
-              <ArrowUpCircle className="text-teal-400" size={24} />
-              <h3 className="font-medium text-muted text-sm sm:text-base">เงินโอนคืน (รอบบิลนี้)</h3>
+        <div className="glass-card" style={{ padding: '0.85rem 1rem', borderRadius: '1rem' }}>
+          <div className="flex items-center justify-between mb-1 group cursor-pointer" onClick={() => toggleSection('refund_income_card')}>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <ArrowUpCircle className="text-teal-400 shrink-0" size={18} />
+              <h3 className="font-medium text-muted text-xs sm:text-sm truncate">เงินโอนคืน (รอบบิลนี้)</h3>
             </div>
-            <button className="text-gray-500 group-hover:text-gray-300 p-1 no-print">
-              {collapsedSections['refund_income_card'] ? <ChevronDown size={16}/> : <ChevronUp size={16}/>}
+            <button className="text-gray-500 group-hover:text-gray-300 p-0.5 no-print shrink-0">
+              {collapsedSections['refund_income_card'] ? <ChevronDown size={14}/> : <ChevronUp size={14}/>}
             </button>
           </div>
           {!collapsedSections['refund_income_card'] && (
             <div>
-              <p className="text-2xl font-bold text-teal-400">฿ {formatMoney(monthRefundIncome)}</p>
-              <div className="text-[11px] text-muted mt-1">คนอื่นโอนคืน / เงินคืน</div>
+              <p className="text-lg sm:text-xl font-bold text-teal-400">฿ {formatMoney(monthRefundIncome)}</p>
+              <div className="text-[10px] sm:text-[11px] text-muted truncate mt-0.5">คนอื่นโอนคืน / เงินคืน</div>
             </div>
           )}
         </div>
 
-        <div className="glass-card">
-          <div className="flex items-center justify-between mb-2 group cursor-pointer" onClick={() => toggleSection('expense_card')}>
-            <div className="flex items-center gap-2">
-              <ArrowDownCircle className="text-red" size={24} />
-              <h3 className="font-medium text-muted text-sm sm:text-base">รายจ่ายปกติ (รอบบิลนี้)</h3>
+        <div className="glass-card" style={{ padding: '0.85rem 1rem', borderRadius: '1rem' }}>
+          <div className="flex items-center justify-between mb-1 group cursor-pointer" onClick={() => toggleSection('expense_card')}>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <ArrowDownCircle className="text-red shrink-0" size={18} />
+              <h3 className="font-medium text-muted text-xs sm:text-sm truncate">รายจ่ายปกติ (รอบบิลนี้)</h3>
             </div>
-            <button className="text-gray-500 group-hover:text-gray-300 p-1 no-print">
-              {collapsedSections['expense_card'] ? <ChevronDown size={16}/> : <ChevronUp size={16}/>}
+            <button className="text-gray-500 group-hover:text-gray-300 p-0.5 no-print shrink-0">
+              {collapsedSections['expense_card'] ? <ChevronDown size={14}/> : <ChevronUp size={14}/>}
             </button>
           </div>
           {!collapsedSections['expense_card'] && (
             <div>
-              <p className="text-2xl font-bold text-red">฿ {formatMoney(monthNormalExpense)}</p>
-              <div className="text-[11px] text-muted mt-1">
+              <p className="text-lg sm:text-xl font-bold text-red">฿ {formatMoney(monthNormalExpense)}</p>
+              <div className="text-[10px] sm:text-[11px] text-muted truncate mt-0.5">
                 จากเงินเดือน {monthNormalIncome > 0 && <span className="text-emerald-400 font-medium">(เหลือ ฿ {formatMoney(monthNormalIncome - monthNormalExpense)})</span>}
               </div>
             </div>
           )}
         </div>
 
-        <div className="glass-card">
-          <div className="flex items-center justify-between mb-2 group cursor-pointer" onClick={() => toggleSection('other_expense_card')}>
-            <div className="flex items-center gap-2">
-              <ArrowDownCircle className="text-amber-500" size={24} />
-              <h3 className="font-medium text-muted text-sm sm:text-base">รายจ่ายอื่นๆ (รอบบิลนี้)</h3>
+        <div className="glass-card" style={{ padding: '0.85rem 1rem', borderRadius: '1rem' }}>
+          <div className="flex items-center justify-between mb-1 group cursor-pointer" onClick={() => toggleSection('other_expense_card')}>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <ArrowDownCircle className="text-amber-500 shrink-0" size={18} />
+              <h3 className="font-medium text-muted text-xs sm:text-sm truncate">รายจ่ายอื่นๆ (รอบบิลนี้)</h3>
             </div>
-            <button className="text-gray-500 group-hover:text-gray-300 p-1 no-print">
-              {collapsedSections['other_expense_card'] ? <ChevronDown size={16}/> : <ChevronUp size={16}/>}
+            <button className="text-gray-500 group-hover:text-gray-300 p-0.5 no-print shrink-0">
+              {collapsedSections['other_expense_card'] ? <ChevronDown size={14}/> : <ChevronUp size={14}/>}
             </button>
           </div>
           {!collapsedSections['other_expense_card'] && (
             <div>
-              <p className="text-2xl font-bold text-amber-500">฿ {formatMoney(monthOtherExpense)}</p>
-              <div className="text-[11px] text-muted mt-1">
+              <p className="text-lg sm:text-xl font-bold text-amber-500">฿ {formatMoney(monthOtherExpense)}</p>
+              <div className="text-[10px] sm:text-[11px] text-muted truncate mt-0.5">
                 ไม่ได้เอาเงินเดือนจ่าย
               </div>
             </div>
