@@ -26,11 +26,11 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recha
 import './index.css';
 
 const CATEGORY_KEYWORDS = {
+  'ค่าใช้จ่ายของคนอื่น': ['ออกให้', 'รูดให้', 'รูดบัตร', 'สำรองจ่าย', 'คนอื่น', 'เพื่อน', 'ฝากซื้อ', 'แทน'],
   'ค่าน้ำมัน': ['น้ำมัน', 'ปตท', 'บางจาก', 'เชลล์', 'gas', 'oil', 'essso', 'ptt', 'ปั้ม'],
   'ค่าน้ำ/ไฟ': ['ค่าน้ำ', 'ประปา', 'water', 'mwa', 'pwa', 'ค่าไฟ', 'mea', 'pea', 'ไฟฟ้า'],
   'ค่าอาหาร': ['ข้าว', 'อาหาร', 'กิน', 'ขนม', 'ดื่ม', 'น้ำ', 'food', 'เคเอฟซี', 'kfc', 'mk', 'ชาบู', 'หมูกระทะ', 'ปิ้งย่าง', 'แม็ค', 'กาแฟ', 'คาเฟ่', 'cafe', 'มื้อ'],
-  'ค่าของใช้': ['ของใช้', 'สบู่', 'ยาสระผม', 'ทิชชู่', 'โลตัส', 'บิ๊กซี', 'เซเว่น', '7-11', '711', 'cj', 'ซีเจ', 'แม็คโคร', 'makro', 'ตลาด', 'shopee', 'lazada', 'ช้อป'],
-  'ค่าใช้จ่ายของคนอื่น': ['ออกให้', 'รูดให้', 'รูดบัตร', 'สำรองจ่าย', 'คนอื่น', 'เพื่อน', 'ฝากซื้อ', 'แทน']
+  'ค่าของใช้': ['ของใช้', 'สบู่', 'ยาสระผม', 'ทิชชู่', 'โลตัส', 'บิ๊กซี', 'เซเว่น', '7-11', '711', 'cj', 'ซีเจ', 'แม็คโคร', 'makro', 'ตลาด', 'shopee', 'lazada', 'ช้อป']
 };
 
 const DEFAULT_BUDGETS = {
@@ -264,6 +264,9 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
     }
     if (CATEGORIES.includes(guessedCategory)) {
       setCategory(guessedCategory);
+      if (guessedCategory === 'ค่าใช้จ่ายของคนอื่น') {
+        setExpenseType('other');
+      }
     }
   }, [memo, type, CATEGORIES]);
 
@@ -437,18 +440,41 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
   const monthIncome = useMemo(() => filteredTransactions.filter(t => t.type === 'income' && !t.projectId).reduce((sum, t) => sum + t.amount, 0), [filteredTransactions]);
   const monthNormalIncome = useMemo(() => filteredTransactions.filter(t => t.type === 'income' && !t.projectId && (!t.incomeType || t.incomeType === 'normal')).reduce((sum, t) => sum + t.amount, 0), [filteredTransactions]);
   const monthRefundIncome = useMemo(() => filteredTransactions.filter(t => t.type === 'income' && !t.projectId && t.incomeType === 'refund').reduce((sum, t) => sum + t.amount, 0), [filteredTransactions]);
-  const monthNormalExpense = useMemo(() => filteredTransactions.filter(t => t.type === 'expense' && !t.projectId && (!t.expenseType || t.expenseType === 'normal')).reduce((sum, t) => sum + t.amount, 0), [filteredTransactions]);
+  const isOtherPeopleExpense = (t) => {
+    if (t.category === 'ค่าใช้จ่ายของคนอื่น') return true;
+    if (t.memo && ['คนอื่น', 'ออกให้', 'รูดให้', 'สำรองจ่าย', 'ฝากซื้อ', 'แทน'].some(k => t.memo.toLowerCase().includes(k))) return true;
+    return false;
+  };
+
+  const isOtherExpense = (t) => {
+    return t.expenseType === 'other' || isOtherPeopleExpense(t);
+  };
+
+  const monthNormalExpense = useMemo(() => filteredTransactions.filter(t => t.type === 'expense' && !t.projectId && !isOtherExpense(t)).reduce((sum, t) => sum + t.amount, 0), [filteredTransactions]);
   const monthNormalExpenseBreakdown = useMemo(() => {
     const b = { paid: 0, cc: 0, shopee: 0 };
     filteredTransactions.forEach(t => {
-      if (t.type !== 'expense' || t.projectId || (t.expenseType && t.expenseType !== 'normal')) return;
+      if (t.type !== 'expense' || t.projectId || isOtherExpense(t)) return;
       if (t.paymentMethod === 'บัตรเครดิต') b.cc += t.amount;
       else if (t.paymentMethod === 'ช้อปปี้') b.shopee += t.amount;
       else b.paid += t.amount;
     });
     return b;
   }, [filteredTransactions]);
-  const monthOtherExpense = useMemo(() => filteredTransactions.filter(t => t.type === 'expense' && !t.projectId && t.expenseType === 'other').reduce((sum, t) => sum + t.amount, 0), [filteredTransactions]);
+  const monthOtherExpense = useMemo(() => filteredTransactions.filter(t => t.type === 'expense' && !t.projectId && isOtherExpense(t)).reduce((sum, t) => sum + t.amount, 0), [filteredTransactions]);
+  const monthOtherExpenseBreakdown = useMemo(() => {
+    let otherPeople = 0;
+    let own = 0;
+    filteredTransactions.forEach(t => {
+      if (t.type !== 'expense' || t.projectId || !isOtherExpense(t)) return;
+      if (isOtherPeopleExpense(t)) {
+        otherPeople += t.amount;
+      } else {
+        own += t.amount;
+      }
+    });
+    return { otherPeople, own };
+  }, [filteredTransactions]);
   const monthExpense = useMemo(() => filteredTransactions.filter(t => t.type === 'expense' && !t.projectId).reduce((sum, t) => sum + t.amount, 0), [filteredTransactions]);
   // calendarMonthExpense ใช้ filteredTransactions เพื่อให้ CC หลังวันที่ 19 ถูกตัดออกจากเดือนนี้
   const calendarMonthExpense = useMemo(() => filteredTransactions.filter(t => t.type === 'expense' && !t.projectId).reduce((sum, t) => sum + t.amount, 0), [filteredTransactions]);
@@ -1034,6 +1060,16 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
               <div className="text-[10px] sm:text-[11px] text-muted truncate mt-0.5">
                 ไม่ได้เอาเงินเดือนจ่าย
               </div>
+              <div style={{ marginTop: '6px', paddingTop: '6px', borderTop: '1px solid rgba(71,85,105,0.5)', display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '11px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '6px' }}>
+                  <span style={{ color: '#9ca3af' }}>👥 รายจ่ายของคนอื่น</span>
+                  <span style={{ fontWeight: 700, color: '#e5e7eb' }}>฿ {formatMoney(monthOtherExpenseBreakdown.otherPeople)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '6px' }}>
+                  <span style={{ color: '#9ca3af' }}>👤 ของเรา (ไม่ได้เอาเงินเดือนจ่าย)</span>
+                  <span style={{ fontWeight: 700, color: '#e5e7eb' }}>฿ {formatMoney(monthOtherExpenseBreakdown.own)}</span>
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -1122,7 +1158,13 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
                     <label className="flex items-center justify-between">
                        {type === 'income' ? 'หมวดหมู่รายรับ' : 'หมวดหมู่ (ปกติ)'}
                     </label>
-                    <select value={category} onChange={e => setCategory(e.target.value)} disabled={type === 'expense' && !!selectedProjectId}>
+                    <select value={category} onChange={e => {
+                      const val = e.target.value;
+                      setCategory(val);
+                      if (type === 'expense' && val === 'ค่าใช้จ่ายของคนอื่น') {
+                        setExpenseType('other');
+                      }
+                    }} disabled={type === 'expense' && !!selectedProjectId}>
                       {type === 'income' 
                         ? incomeCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)
                         : CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)
