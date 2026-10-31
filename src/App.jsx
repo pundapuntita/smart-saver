@@ -34,12 +34,34 @@ const CATEGORY_KEYWORDS = {
 };
 
 const DEFAULT_BUDGETS = {
+  'grab': 1000,
+  'ค่าที่พัก': 500,
   'ค่าน้ำมัน': 1500,
-  'ค่าน้ำ/ไฟ': 1500,
-  'ค่าอาหาร': 5000,
-  'ค่าของใช้': 2000,
-  'ค่าใช้จ่ายของคนอื่น': 1000,
+  'ค่าน้ำ/ไฟ': 2000,
+  'True': 100,
+  'ค่ากลับบ้าน': 2500,
+  'ทำเล็บ': 500,
+  'กระต่าย': 2500,
+  'ChatGPT': 350,
+  'แม่': 6000,
   'อื่นๆ': 1000,
+  'ค่าของใช้': 1500,
+  'Youtube': 66.5,
+  'PVD': 2250,
+  'ค่าซักรีด': 500,
+  'ค่าอาหาร': 5000,
+  'ค่าใช้จ่ายของคนอื่น': 1000,
+  'ทำฟัน': 1500,
+  'Netflix': 85,
+  'ตู้เย็น เครื่องซักผ้า': 2075,
+  'custommai': 1000,
+  'Dtac': 128.4,
+  'ช้อปปิ้ง': 0,
+  'iPhone': 1085,
+  'ก้อง': 0,
+  'เสื้อผ้า': 1000,
+  'รถ': 7360,
+  'เที่ยว': 1500,
 };
 
 const DEFAULT_INCOME_CATEGORIES = ['เงินเดือน', 'ฟรีแลนซ์/งานเสริม', 'คืนเงิน/เงินค้าง', 'โบนัส/ปันผล', 'อื่นๆ'];
@@ -1702,8 +1724,6 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
 }
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('new');
-
   // คำนวณยอดเงินคงเหลือจากโปรไฟล์เก่า เพื่อนำไปเป็นยอดตั้งต้นของโปรไฟล์ใหม่
   const seedAccounts = useMemo(() => {
     try {
@@ -1731,35 +1751,8 @@ export default function App() {
 
   return (
     <div className="w-full min-h-screen flex flex-col items-center">
-      {/* Tab switcher */}
-      <div className="flex gap-1 mt-4 mb-2 p-1 bg-slate-800/60 rounded-xl border border-slate-700/50 no-print">
-        <button
-          onClick={() => setActiveTab('new')}
-          className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
-            activeTab === 'new'
-              ? 'bg-blue-600 text-white shadow-md shadow-blue-500/30'
-              : 'text-gray-400 hover:text-gray-200 hover:bg-slate-700/50'
-          }`}
-        >
-          ✨ ข้อมูลใหม่ <span className="text-xs font-normal opacity-80">(พ.ย. 2568+)</span>
-        </button>
-        <button
-          onClick={() => setActiveTab('old')}
-          className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
-            activeTab === 'old'
-              ? 'bg-slate-500 text-white shadow-md'
-              : 'text-gray-400 hover:text-gray-200 hover:bg-slate-700/50'
-          }`}
-        >
-          📦 ข้อมูลเก่า <span className="text-xs font-normal opacity-80">(ถึง ต.ค. 2568)</span>
-        </button>
-      </div>
-
       <div className="w-full relative">
-        {activeTab === 'new'
-          ? <SmartSaverApp profileName="ปัณด้า-v2" seedAccounts={seedAccounts} />
-          : <SmartSaverApp profileName="ปัณด้า" />
-        }
+        <SmartSaverApp profileName="ปัณด้า-v2" seedAccounts={seedAccounts} />
       </div>
     </div>
   );
