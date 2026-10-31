@@ -1097,7 +1097,6 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
                   <div>
                     <label className="flex items-center justify-between">
                        {type === 'income' ? 'หมวดหมู่รายรับ' : 'หมวดหมู่ (ปกติ)'}
-                       {type === 'expense' && <span className="text-xs text-blue-400">ถ้าเลือกโปรเจคพิเศษจะไม่คิดตรงนี้</span>}
                     </label>
                     <select value={category} onChange={e => setCategory(e.target.value)} disabled={type === 'expense' && !!selectedProjectId}>
                       {type === 'income' 
@@ -1155,13 +1154,6 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
                         </div>
                       </div>
 
-                      <div>
-                        <label>ผูกกับโปรเจคพิเศษ (แยกงบอิสระ)</label>
-                        <select value={selectedProjectId} onChange={e => setSelectedProjectId(e.target.value)}>
-                          <option value="">-- ไม่ผูกโปรเจค (รายจ่ายปกติ) --</option>
-                          {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                        </select>
-                      </div>
                       {paymentMethod !== 'บัตรเครดิต' && paymentMethod !== 'ช้อปปี้' && (
                         <div>
                            <label>หักจากบัญชี</label>
@@ -1419,48 +1411,6 @@ function SmartSaverApp({ profileName = 'ปัณด้า', seedAccounts = null
         </div>
 
         <div className="flex flex-col gap-6 w-full print:mb-8">
-          <div className="glass-card">
-            <div className="flex justify-between items-center mb-6 group cursor-pointer" onClick={() => toggleSection('projects')}>
-              <h2 className="text-xl font-bold flex items-center gap-2 print:text-black">
-                <Briefcase size={20} /> โปรเจคพิเศษ (แยกงบจากปกติ)
-              </h2>
-              <div className="flex items-center gap-2">
-                <button onClick={(e) => { e.stopPropagation(); addProject(); }} className="btn-secondary flex items-center gap-1 text-xs no-print" style={{ padding: '0.4rem 0.6rem' }}>
-                  <Plus size={14} /> สร้างโปรเจค
-                </button>
-                <button className="text-gray-500 group-hover:text-gray-300 p-1 no-print">
-                  {collapsedSections['projects'] ? <ChevronDown size={20}/> : <ChevronUp size={20}/>}
-                </button>
-              </div>
-            </div>
-            {!collapsedSections['projects'] && (
-            <>
-            {projects.filter(p => currentMonthProjectExpenses[p.id] > 0).length === 0 ? (
-               <p className="text-xs text-muted mb-4">ยังไม่มีรายจ่ายโปรเจคพิเศษในรอบบิลนี้<br/>คุณสามารถสร้างโปรเจคใหม่ หรือเลือกผูกรายจ่ายเข้าโปรเจคเดิมได้ในเมนู "ปุ่มเพิ่มรายการ"</p>
-            ) : (
-                <div className="flex flex-col gap-3">
-                  {projects.filter(p => currentMonthProjectExpenses[p.id] > 0).map(p => (
-                    <div key={p.id} className="flex justify-between items-center bg-slate-800/40 border border-slate-700/50 p-3 rounded print:border-gray-300 group">
-                      <span className="font-medium print:text-black">{p.name}</span>
-                      <div className="flex items-center gap-3">
-                        <span className="font-bold text-main print:text-black">฿ {formatMoney(currentMonthProjectExpenses[p.id] || 0)}</span>
-                        <div className="flex gap-1 no-print opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button onClick={() => editProject(p.id, p.name)} className="text-gray-400 hover:text-blue-400 bg-transparent p-1 shadow-none rounded-full ml-1" title="แก้ไข">
-                            <Edit2 size={14} />
-                          </button>
-                          <button onClick={() => deleteProject(p.id)} className="text-gray-400 hover:text-red-400 bg-transparent p-1 shadow-none rounded-full" title="ลบ">
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-            )}
-            </>
-            )}
-          </div>
-
           <div className="glass-card">
              <div className="flex justify-between items-center mb-6 group cursor-pointer" onClick={() => toggleSection('payment')}>
                 <h2 className="text-xl font-bold flex items-center gap-2 print:text-black">
